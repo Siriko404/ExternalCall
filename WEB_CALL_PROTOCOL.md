@@ -5,7 +5,7 @@ surface; this file defines the contract and recovery facts.
 
 ## Job preparation
 
-`/externalcall:prep` establishes purpose, task, scope in/out, constraints,
+`/xcall:prep` establishes purpose, task, scope in/out, constraints,
 requirements, acceptance evidence/reviewer, deliverables, approved sources and
 stopping conditions. Inspect discoverable facts before asking questions. Ask
 only consequential missing decisions in dependency order. Preserve hypotheses,

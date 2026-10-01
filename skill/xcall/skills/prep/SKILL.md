@@ -1,6 +1,6 @@
 ---
 name: prep
-description: Clarify and prepare one bounded external AI job for ChatGPT Web or Claude Web, with explicit scope, deliverables and acceptance criteria. Use when the user asks to send work to an external web model.
+description: Keyword xcall. Clarify and prepare one bounded external AI job for ChatGPT Web or Claude Web, with explicit scope, deliverables and acceptance criteria. Use when the user asks to send work to an external web model.
 disable-model-invocation: true
 ---
 
@@ -34,7 +34,7 @@ focused operating reference only for lifecycle commands or recovery.
    **In the conversation I am in** per call; Go, site Attach, inspect, Send,
    download the outputs ZIP, Done. Never send, download or press Done for them.
 
-For status/results use `/externalcall:manage`. For setup use `scripts/setup.py`;
+For status/results use `/xcall:manage`. For setup use `scripts/setup.py`;
 for update use `scripts/update.py`. Never upload internal calls/state storage or
 recognized credentials. Export an explicit sanitized source for approved reuse.
 Do not claim tests, complete work or semantic acceptance from schema/hash success.

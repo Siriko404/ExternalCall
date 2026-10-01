@@ -48,9 +48,9 @@ IS_LINUX = sys.platform.startswith("linux")
 GUIDE = """\
 How to use it, in full:
 
-  /externalcall:prep   describe the task; it writes the request, freezes the files
+  /xcall:prep   describe the task; it writes the request, freezes the files
                   and hands you an exchange to launch
-  /externalcall:manage status, results, recovery and correction
+  /xcall:manage status, results, recovery and correction
 
   In the side panel: Go -> click ChatGPT's own Attach files -> check what
   attached -> Send -> download the one archive -> Done and validate.
@@ -323,11 +323,11 @@ def main(argv: list[str]) -> int:
         f"""
 === One step left ===
 
-Restart Claude Code. Slash commands register at startup, so /externalcall:* appears
+Restart Claude Code. Slash commands register at startup, so /xcall:* appears
 in the next session, not this one.
 
-Use /externalcall:prep for a small smoke-test job and record the actual browser
-observations from skill/externalcall/references/SMOKE_TEST.md.
+Use /xcall:prep for a small smoke-test job and record the actual browser
+observations from skill/xcall/references/SMOKE_TEST.md.
 
 {GUIDE}"""
     )

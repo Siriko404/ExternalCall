@@ -118,7 +118,7 @@ class UpdateTests(unittest.TestCase):
 
     def test_an_update_fast_forwards_and_names_what_the_operator_must_do(self):
         self.publish("extension/sidepanel.js", "new panel\n")
-        self.publish("skill/externalcall/skills/menu/SKILL.md", "new menu\n")
+        self.publish("skill/xcall/skills/manage/SKILL.md", "new menu\n")
 
         result = update(self.root)
 

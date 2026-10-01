@@ -2,7 +2,7 @@
 
 `/plugin marketplace add` followed by `/plugin install` writes exactly two keys
 into ~/.claude/settings.json: the marketplace under `extraKnownMarketplaces`,
-and `externalcall@externalcall-local` under `enabledPlugins`. This writes the same two, so
+and `xcall@xcall-local` under `enabledPlugins`. This writes the same two, so
 an agent can install the skills itself instead of handing the operator commands
 to paste.
 
@@ -23,8 +23,8 @@ import sys
 import time
 from pathlib import Path
 
-MARKETPLACE = "externalcall-local"
-PLUGIN = "externalcall@externalcall-local"
+MARKETPLACE = "xcall-local"
+PLUGIN = "xcall@xcall-local"
 
 
 def settings_path() -> Path:
@@ -32,7 +32,7 @@ def settings_path() -> Path:
 
 
 def plugin_dir() -> Path:
-    return Path(__file__).resolve().parents[1] / "skill" / "externalcall"
+    return Path(__file__).resolve().parents[1] / "skill" / "xcall"
 
 
 def main(argv: list[str]) -> int:
@@ -85,7 +85,7 @@ def main(argv: list[str]) -> int:
     os.replace(staging, target)
 
     print(f"registered {PLUGIN} -> {source}")
-    print("Restart Claude Code for /externalcall:prep and /externalcall:manage.")
+    print("Restart Claude Code for /xcall:prep and /xcall:manage.")
     return 0
 
 

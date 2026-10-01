@@ -14,7 +14,7 @@ class ProtocolTests(unittest.TestCase):
             self.assertTrue((root / item["path"]).is_file())
 
     def test_skill_references_are_resolvable(self):
-        root = Path(__file__).resolve().parents[2] / "skill/externalcall"
+        root = Path(__file__).resolve().parents[2] / "skill/xcall"
         for skill in (root / "skills").glob("*/SKILL.md"):
             for relative in re.findall(r"\]\(([^)]+)\)", skill.read_text()):
                 self.assertTrue((skill.parent / relative).is_file(), relative)
