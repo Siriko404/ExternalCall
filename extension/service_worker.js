@@ -616,8 +616,7 @@ async function submitCompletedDownload(delta) {
   if (delta?.state?.current !== "complete" || !Number.isInteger(delta.id)) {
     return;
   }
-  const stored = await chrome.storage.session.get("handoffs");
-  const handoffs = stored.handoffs ?? {};
+  const handoffs = await readHandoffs();
   const matches = await chrome.downloads.search({ id: delta.id });
   const item = matches[0];
   if (!item || item.state !== "complete" || !item.filename) {
