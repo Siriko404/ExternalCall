@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GPT Web Call",
   "version": "0.1.0",
-  "description": "User-controlled ChatGPT Web file handoff and response collection.",
+  "description": "User-controlled GPT and Claude Web file handoff and response collection.",
   "minimum_chrome_version": "125",
   "permissions": [
     "sidePanel",
@@ -12,7 +12,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://chatgpt.com/*"
+    "https://chatgpt.com/*",
+    "https://claude.ai/*"
   ],
   "background": {
     "service_worker": "service_worker.js",

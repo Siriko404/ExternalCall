@@ -55,7 +55,8 @@ the pre-send check — not `validate`.
 ## 3. Operator round trip
 
 Ask the operator: side panel → click the call's row in the top list →
-destination set to **In a new tab** → **Go** → ChatGPT's **Attach files** →
+destination set to **In a new tab**, agent set to **GPT** (or **Claude** when
+smoking the Claude path) → **Go** → the conversation's **Attach files** →
 **Send** → download the one named archive → **Done and validate**. The extension
 attaches and types the launch line; it never sends.
 
@@ -77,7 +78,8 @@ Run it a second time, with a fresh probe, when the smoke test is checking the
 destination control rather than the pipeline — after any change to the
 extension, and whenever the operator asks for it.
 
-Build a new probe with a new token, open a ChatGPT conversation that already
+Build a new probe with a new token, open a conversation with the chosen agent
+that already
 has messages in it, focus that tab, set the destination to **Send in the
 conversation I am in**, then Go. Pass conditions are the ones in §4, unchanged.
 Two extra things are being watched: the call must land in that existing thread
@@ -86,7 +88,7 @@ rendered thread is where `Page.fileChooserOpened` has been seen arriving with
 no node id, which is the path the fallback exists for.
 
 The refusals are part of the test. With the destination on *current* and a
-non-ChatGPT tab focused, Go must fail with a message naming the cause and must
+tab that is not a conversation with the chosen agent focused, Go must fail with a message naming the cause and must
 not open a tab instead.
 
 ## 4. Pass or fail
@@ -113,7 +115,7 @@ the thing this step is watching for.
 
 ## 5. What this test gives up
 
-It exercises live ChatGPT Web, Chrome attachment, native messaging, filename
+It exercises the live web conversation, Chrome attachment, native messaging, filename
 routing, download collection, archive-member accounting, and validation in a
 single path. In exchange it is slow, needs operator clicks, spends a live model
 interaction, and can fail because the network or the model is unavailable while

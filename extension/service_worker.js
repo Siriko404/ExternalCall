@@ -7,7 +7,7 @@ import {
   anyShouldObserveDownload,
   handoffForTab,
 } from "./lib/downloads.js";
-import { CHATGPT_URL, chooseTargetTab } from "./lib/target.js";
+import { chooseTargetTab, normalizeProvider, providerBaseUrl, providerLabel } from "./lib/target.js";
 
 
 const NATIVE_HOST = "com.sina.gptwebcall";
@@ -58,9 +58,9 @@ async function handlePanelMessage(message) {
     case "GET_STATUS":
       return getStatus();
     case "GO":
-      return beginGo(message.exchangeId, message.mode);
+      return beginGo(message.exchangeId, message.mode, message.provider);
     case "RESUME":
-      return resumeCall(message.exchangeId, message.mode);
+      return resumeCall(message.exchangeId, message.mode, message.provider);
     case "STOP":
       return stopCall(message.exchangeId);
     case "DONE":
@@ -149,32 +149,36 @@ async function getStatus() {
  * call.repair already hands it a tab that has been in use, so this is entirely a
  * question of which tab id we resolve here.
  */
-async function resolveTargetTab(mode) {
+async function resolveTargetTab(mode, provider) {
+  const agent = normalizeProvider(provider);
   const [activeTab] = mode === "current"
     ? await chrome.tabs.query({ active: true, lastFocusedWindow: true })
     : [null];
   const choice = chooseTargetTab({
     mode,
+    provider: agent,
     activeTab,
     handoffs: mode === "current" ? await readHandoffs() : {},
   });
   if (!choice.create) {
     return { id: choice.tabId };
   }
-  const created = await chrome.tabs.create({ url: CHATGPT_URL, active: true });
+  const created = await chrome.tabs.create({ url: providerBaseUrl(agent), active: true });
   if (!Number.isInteger(created.id)) {
-    throw new Error("Chrome did not create a usable ChatGPT tab");
+    throw new Error(`Chrome did not create a usable ${providerLabel(agent)} tab`);
   }
   return created;
 }
 
 
-async function beginGo(exchangeId, mode) {
+async function beginGo(exchangeId, mode, provider) {
+  const agent = normalizeProvider(provider);
+  const label = providerLabel(agent);
   if (typeof exchangeId !== "string" || !exchangeId) {
     throw new Error("Select a prepared call first");
   }
   await chrome.storage.session.set({ lastDownloadFailure: null });
-  const tab = await resolveTargetTab(mode);
+  const tab = await resolveTargetTab(mode, agent);
   const existingDownloads = await chrome.downloads.search({});
   let started = false;
   try {
@@ -196,8 +200,9 @@ async function beginGo(exchangeId, mode) {
         exchangeId,
         mode === "current"
           ? "Delivering into the open conversation. Click Attach files there."
-          : "Click Attach files in ChatGPT. The instruction is typed automatically once the attachment lands.",
+          : `Click Attach files in ${label}. The instruction is typed automatically once the attachment lands.`,
       ),
+      provider: agent,
       launchPrompt: result.launch_prompt ?? null,
       launchInserted: null,
       pendingLaunchPrompt: mode === "current" ? null : result.launch_prompt ?? null,
@@ -235,22 +240,23 @@ async function beginGo(exchangeId, mode) {
  * copy button instead, because the operator can paste it and carry on, and
  * aborting a call that has already started monitoring would cost more.
  */
-async function typeLaunchPrompt(tabId, text, mode) {
+async function typeLaunchPrompt(tabId, text, mode, provider) {
   if (mode === "current") {
     return { inserted: null, message: null };
   }
+  const label = providerLabel(provider);
   try {
     await insertPromptIntoComposer(tabId, text, {
       attempts: COMPOSER_ATTEMPTS_NEW_TAB,
     });
     return {
       inserted: true,
-      message: "Files attached, instruction typed into ChatGPT. Review, then click Send.",
+      message: `Files attached, instruction typed into ${label}. Review, then click Send.`,
     };
   } catch (error) {
     return {
       inserted: false,
-      message: "Copy the instruction below into ChatGPT, then click Send. "
+      message: `Copy the instruction below into ${label}, then click Send. `
         + `(${error.message})`,
     };
   }
@@ -265,8 +271,10 @@ async function typeLaunchPrompt(tabId, text, mode) {
  * conductor call into a fresh tab would silently discard the thread the mode
  * exists to keep.
  */
-async function resumeCall(exchangeId, mode) {
-  const tab = await resolveTargetTab(mode);
+async function resumeCall(exchangeId, mode, provider) {
+  const agent = normalizeProvider(provider);
+  const label = providerLabel(agent);
+  const tab = await resolveTargetTab(mode, agent);
   const existingDownloads = await chrome.downloads.search({});
   const payload = {
     tab_id: tab.id,
@@ -285,8 +293,9 @@ async function resumeCall(exchangeId, mode) {
         result.active.exchange_id,
         mode === "current"
           ? "Resumed into the open conversation. Click Attach files there."
-          : "Resumed. Click Attach files in ChatGPT — the instruction is typed automatically once the attachment lands.",
+          : `Resumed. Click Attach files in ${label} — the instruction is typed automatically once the attachment lands.`,
       ),
+      provider: agent,
       launchPrompt: result.launch_prompt ?? null,
       launchInserted: null,
       pendingLaunchPrompt: mode === "current" ? null : result.launch_prompt ?? null,
@@ -344,7 +353,8 @@ async function completeAttachment(source, params) {
     if (!error.message.includes("backendNodeId")) {
       throw error;
     }
-    // ChatGPT's chooser no longer names its input node; find it ourselves.
+    // Some composers open the chooser from something other than a real
+    // <input type=file>; find it ourselves.
     const nodeId = await findFileInputNode(source);
     assignment = buildFallbackAssignment(handoff, source, nodeId);
   }
@@ -367,13 +377,14 @@ async function completeAttachment(source, params) {
     message: `${handoff.attachmentNames.length} files attached. Review them, then click Send.`,
   };
   if (typeof handoff.pendingLaunchPrompt === "string" && handoff.pendingLaunchPrompt.trim()) {
-    const launch = await typeLaunchPrompt(source.tabId, handoff.pendingLaunchPrompt, "new");
+    const launch = await typeLaunchPrompt(source.tabId, handoff.pendingLaunchPrompt, "new", handoff.provider);
+    const label = providerLabel(handoff.provider);
     updated = {
       ...updated,
       launchInserted: launch.inserted,
       pendingLaunchPrompt: null,
       message: launch.inserted
-        ? "Files attached, instruction typed into ChatGPT. Review, then click Send."
+        ? `Files attached, instruction typed into ${label}. Review, then click Send.`
         : launch.message,
     };
   }
@@ -383,19 +394,27 @@ async function completeAttachment(source, params) {
 
 
 /* Fallback for a chooser event with no backendNodeId: the composer's hidden
- * <input type=file> is still on the page, so locate it by query. When several
- * exist, the last is the one ChatGPT's current composer wired most recently.
+ * <input type=file> is still on the page, so locate it by query. Claude exposes
+ * #chat-input-file-upload-onpage; ChatGPT wires the last input most recently.
  */
 async function findFileInputNode(source) {
   await chrome.debugger.sendCommand(source, "DOM.enable", {});
   const { root } = await chrome.debugger.sendCommand(source, "DOM.getDocument", {});
+  const preferred = await chrome.debugger.sendCommand(
+    source,
+    "DOM.querySelector",
+    { nodeId: root.nodeId, selector: "#chat-input-file-upload-onpage" },
+  ).catch(() => null);
+  if (Number.isInteger(preferred?.nodeId) && preferred.nodeId > 0) {
+    return preferred.nodeId;
+  }
   const { nodeIds } = await chrome.debugger.sendCommand(
     source,
     "DOM.querySelectorAll",
     { nodeId: root.nodeId, selector: "input[type=file]" },
   );
   if (!Array.isArray(nodeIds) || nodeIds.length === 0) {
-    throw new Error("no <input type=file> found on the ChatGPT page");
+    throw new Error("no <input type=file> found on the conversation page");
   }
   return nodeIds.at(-1);
 }
@@ -410,7 +429,7 @@ async function openRepairRound(exchangeId) {
   const tabId = handoff?.tabId;
   const target = exchangeId ?? handoff?.exchangeId;
   if (!Number.isInteger(tabId)) {
-    throw new Error("No bound ChatGPT tab. Use Resume attachment first.");
+    throw new Error(`No bound ${providerLabel(handoff?.provider)} tab. Use Resume attachment first.`);
   }
   if (typeof target !== "string" || !target) {
     throw new Error("No exchange to repair");
@@ -444,8 +463,8 @@ async function openRepairRound(exchangeId) {
     repairPromptPath: result.prompt_path,
     status: inserted ? "REPAIR_PROMPT_INSERTED" : "REPAIR_PROMPT_READY",
     message: inserted
-      ? `Correction round ${result.round} typed into ChatGPT. Review it, then click Send.`
-      : `Correction round ${result.round} ready. Copy the prompt below into ChatGPT, then click Send.`
+      ? `Correction round ${result.round} typed into ${providerLabel(handoff?.provider)}. Review it, then click Send.`
+      : `Correction round ${result.round} ready. Copy the prompt below into ${providerLabel(handoff?.provider)}, then click Send.`
         + (insertError ? ` (${insertError})` : ""),
   };
   await writeHandoff(updated);
@@ -455,7 +474,7 @@ async function openRepairRound(exchangeId) {
 }
 
 
-/* Types text into ChatGPT's composer and stops there. It never sends.
+/* Types text into the conversation composer and stops there. It never sends.
  *
  * This attaches and detaches its own debugger session, so it must not run while
  * a tab is armed: the second attach throws, and the detach in `finally` would
@@ -479,6 +498,8 @@ async function insertPromptIntoComposer(tabId, text, { attempts = 1 } = {}) {
         {
           expression: `(() => {
             const composer = document.querySelector("#prompt-textarea")
+              ?? document.querySelector("div[contenteditable='true'][data-cds='Editor']")
+              ?? document.querySelector("div.tiptap.ProseMirror")
               ?? document.querySelector("div[contenteditable='true']")
               ?? document.querySelector("textarea");
             if (!composer) { return false; }
@@ -496,7 +517,7 @@ async function insertPromptIntoComposer(tabId, text, { attempts = 1 } = {}) {
         await new Promise((resolve) => setTimeout(resolve, COMPOSER_POLL_MS));
       }
     }
-    throw new Error("the ChatGPT composer was not found on the bound tab");
+    throw new Error("the conversation composer was not found on the bound tab");
   } finally {
     await safeDetach(tabId);
   }

@@ -113,8 +113,9 @@ test("resume sends the destination, and resolves it the way Go does", async () =
   const worker = await readFile(new URL("../service_worker.js", import.meta.url), "utf8");
 
   assert.match(panel, /mode: destinationFor\(call\.id\)/);
-  assert.match(worker, /case "RESUME":\s*\n\s*return resumeCall\(message\.exchangeId, message\.mode\);/);
-  assert.match(worker, /async function resumeCall\(exchangeId, mode\) \{\s*\n\s*const tab = await resolveTargetTab\(mode\);/);
+  assert.match(panel, /provider: providerFor\(call\.id\)/);
+  assert.match(worker, /case "RESUME":\s*\n\s*return resumeCall\(message\.exchangeId, message\.mode, message\.provider\);/);
+  assert.match(worker, /async function resumeCall\(exchangeId, mode, provider\) \{\s*\n\s*const agent = normalizeProvider\(provider\);/);
   assert.doesNotMatch(
     worker.slice(worker.indexOf("async function resumeCall")),
     /chrome\.tabs\.create/,

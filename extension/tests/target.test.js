@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { chooseTargetTab } from "../lib/target.js";
+import { chooseTargetTab, normalizeProvider, providerBaseUrl } from "../lib/target.js";
 
 const chatTab = { id: 7, url: "https://chatgpt.com/c/abc-123" };
 

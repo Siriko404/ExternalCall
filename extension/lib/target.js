@@ -8,6 +8,19 @@
  */
 
 export const CHATGPT_URL = "https://chatgpt.com/";
+export const CLAUDE_URL = "https://claude.ai/";
+
+export function normalizeProvider(value) {
+  return value === "claude" ? "claude" : "gpt";
+}
+
+export function providerBaseUrl(provider) {
+  return normalizeProvider(provider) === "claude" ? CLAUDE_URL : CHATGPT_URL;
+}
+
+export function providerLabel(provider) {
+  return normalizeProvider(provider) === "claude" ? "Claude" : "ChatGPT";
+}
 
 /* Returns {create: true} to open a fresh conversation, or {create: false,
  * tabId} to bind one already open. Throws with an operator-facing message when
@@ -18,27 +31,36 @@ export const CHATGPT_URL = "https://chatgpt.com/";
  * showing, which is the operator's own window being taken over by a call they
  * expected to arrive somewhere new.
  */
-export function chooseTargetTab({ mode, activeTab, handoffs = {} } = {}) {
+export function chooseTargetTab({ mode, provider, activeTab, handoffs = {} } = {}) {
+  const agent = normalizeProvider(provider);
+  const baseUrl = providerBaseUrl(agent);
+  const agentName = providerLabel(agent);
   if (mode !== "current") {
     return { create: true };
   }
   if (!activeTab || !Number.isInteger(activeTab.id)) {
-    throw new Error("No active tab to send into. Focus your ChatGPT conversation.");
+    throw new Error(`No active tab to send into. Focus your ${agentName} conversation.`);
   }
-  /* The extension holds a host permission for chatgpt.com alone, so `url` is
-   * populated for ChatGPT tabs and undefined everywhere else. An unreadable URL
+  /* The extension holds host permissions for chatgpt.com and claude.ai, so `url`
+   * is populated for those tabs and undefined everywhere else. An unreadable URL
    * is therefore a refusal and never a fallback — a missing URL is exactly the
    * case where we cannot prove the tab is safe to arm. */
-  if (typeof activeTab.url !== "string" || !activeTab.url.startsWith(CHATGPT_URL)) {
+  if (typeof activeTab.url !== "string" || !activeTab.url.startsWith(baseUrl)) {
     /* A withheld URL and a genuinely wrong site are indistinguishable from
-     * here, and the operator staring straight at a ChatGPT tab needs the second
-     * cause named or the message reads as a lie. */
+     * here, and the operator staring straight at a conversation tab needs the
+     * second cause named or the message reads as a lie. */
     throw new Error(
-      "The focused tab is not a ChatGPT conversation. Open the conversation you "
-      + "want this call delivered into, focus it, then click Go. If it already "
-      + "is one, Chrome is withholding the tab's address because the extension's "
-      + "chatgpt.com permission was declined — reload the extension and accept "
-      + "the prompt.",
+      agent === "claude"
+        ? "The focused tab is not a Claude conversation. Open the conversation you "
+          + "want this call delivered into, focus it, then click Go. If it already "
+          + "is one, Chrome is withholding the tab's address because the extension's "
+          + "claude.ai permission was declined — reload the extension and accept "
+          + "the prompt."
+        : "The focused tab is not a ChatGPT conversation. Open the conversation you "
+          + "want this call delivered into, focus it, then click Go. If it already "
+          + "is one, Chrome is withholding the tab's address because the extension's "
+          + "chatgpt.com permission was declined — reload the extension and accept "
+          + "the prompt.",
     );
   }
   const bound = Object.values(handoffs).find((item) => item?.tabId === activeTab.id);

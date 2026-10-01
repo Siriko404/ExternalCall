@@ -17,12 +17,12 @@ test("manifest requests only the approved permissions", async () => {
     "storage",
   ]);
   /* Sending a call into the conversation already open means reading the focused
-   * tab's URL first, and refusing anything that is not ChatGPT. A host
-   * permission scoped to chatgpt.com buys exactly that: `tab.url` is populated
-   * for ChatGPT tabs and stays undefined for every other site, so the check
-   * cannot see his other tabs and an unreadable URL is already a refusal. The
-   * broad "tabs" permission would have worked too, and would have exposed the
-   * lot. This stays pinned so widening it has to be deliberate. */
-  assert.deepEqual(manifest.host_permissions, ["https://chatgpt.com/*"]);
+   * tab's URL first, and refusing anything that is not the chosen agent. Host
+   * permissions scoped to chatgpt.com and claude.ai buy exactly that: `tab.url`
+   * is populated for those tabs and stays undefined for every other site, so the
+   * check cannot see his other tabs and an unreadable URL is already a refusal.
+   * The broad "tabs" permission would have worked too, and would have exposed
+   * the lot. This stays pinned so widening it has to be deliberate. */
+  assert.deepEqual(manifest.host_permissions, ["https://chatgpt.com/*", "https://claude.ai/*"]);
   assert.equal(manifest.content_scripts, undefined);
 });

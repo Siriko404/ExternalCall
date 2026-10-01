@@ -48,6 +48,7 @@ let openId = null;
  * was the real hazard in the old panel, where two calls running at once read
  * the same dropdown and the second one inherited the first one's answer. */
 const destinations = new Map();
+const providers = new Map();
 /* Calls whose Done guard the operator has deliberately overridden. */
 const forced = new Set();
 let ticking = null;
@@ -72,12 +73,16 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-/* The last destination the operator picked, offered as the default for the
- * next call rather than as a decision already made. */
+/* The last destination and agent the operator picked, offered as the default
+ * for the next call rather than as a decision already made. */
 let defaultDestination = "new";
-chrome.storage.local.get("goMode").then((stored) => {
+let defaultProvider = "gpt";
+chrome.storage.local.get(["goMode", "agent"]).then((stored) => {
   if (stored.goMode === "current" || stored.goMode === "new") {
     defaultDestination = stored.goMode;
+  }
+  if (stored.agent === "claude" || stored.agent === "gpt") {
+    defaultProvider = stored.agent;
   }
   refresh();
 });
@@ -210,6 +215,7 @@ function flightDrawer(call) {
         ...(call.call?.expected_artifacts ?? []).map((name) => ["expects", name]),
       ]),
       destinationPicker(call.id),
+      providerPicker(call.id),
       commandRow([
         primary("Go", () =>
           run(async () => {
@@ -217,6 +223,7 @@ function flightDrawer(call) {
               type: "GO",
               exchangeId: call.id,
               mode: destinationFor(call.id),
+              provider: providerFor(call.id),
             });
             showLaunchPrompt(handoff);
           })),
@@ -242,6 +249,7 @@ function flightDrawer(call) {
           type: "RESUME",
           exchangeId: call.id,
           mode: destinationFor(call.id),
+          provider: providerFor(call.id),
         });
         showLaunchPrompt(handoff);
       }));
@@ -251,6 +259,7 @@ function flightDrawer(call) {
       destinationPicker(call.id, () => {
         resume.disabled = busy;
       }),
+      providerPicker(call.id),
       commandRow([resume, secondary("Stop", { type: "STOP", exchangeId: call.id })]),
     );
     return body;
@@ -417,7 +426,8 @@ function detailList(rows, className = "detail") {
   return list;
 }
 
-/* Per call, and only offered where it is about to be used. */
+/* Per call, and only offered where it is about to be used. Destination and
+ * agent are separate params: where the call lands, and which model it lands in. */
 function destinationPicker(exchangeId, onChosen = () => {}) {
   const wrap = document.createDocumentFragment();
   const picker = document.createElement("select");
@@ -436,9 +446,10 @@ function destinationPicker(exchangeId, onChosen = () => {}) {
   const hint = document.createElement("p");
   hint.className = "hint";
   const describe = () => {
+    const agent = providerFor(exchangeId) === "claude" ? "Claude" : "ChatGPT";
     hint.textContent = picker.value === "current"
-      ? "Whichever ChatGPT conversation is focused when you click Go."
-      : "Opens a new tab with a new ChatGPT conversation. Nothing it has been "
+      ? `Whichever ${agent} conversation is focused when you click Go.`
+      : `Opens a new tab with a new ${agent} conversation. Nothing it has been `
         + "told before affects the answer.";
   };
   describe();
@@ -456,8 +467,38 @@ function destinationPicker(exchangeId, onChosen = () => {}) {
   return wrap;
 }
 
+function providerPicker(exchangeId) {
+  const wrap = document.createDocumentFragment();
+  const picker = document.createElement("select");
+  picker.setAttribute("aria-label", "Which agent to send this call to");
+  for (const [value, label] of [
+    ["gpt", "GPT"],
+    ["claude", "Claude"],
+  ]) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    picker.append(option);
+  }
+  picker.value = providerFor(exchangeId);
+
+  picker.addEventListener("change", () => {
+    providers.set(exchangeId, picker.value);
+    chrome.storage.local.set({ agent: picker.value });
+    defaultProvider = picker.value;
+    refresh();
+  });
+
+  wrap.append(picker);
+  return wrap;
+}
+
 function destinationFor(exchangeId) {
   return destinations.get(exchangeId) ?? defaultDestination;
+}
+
+function providerFor(exchangeId) {
+  return providers.get(exchangeId) ?? defaultProvider;
 }
 
 function commandRow(buttons) {
