@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "GPT Web Call",
+  "name": "ExternalCall",
   "version": "0.1.0",
   "description": "User-controlled GPT and Claude Web file handoff and response collection.",
   "minimum_chrome_version": "125",
@@ -20,7 +20,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "GPT Web Call"
+    "default_title": "ExternalCall"
   },
   "side_panel": {
     "default_path": "sidepanel.html"

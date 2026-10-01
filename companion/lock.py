@@ -27,6 +27,19 @@ _RETRY_SECONDS = 0.02
 def state_lock(root: Path, timeout: float = LOCK_TIMEOUT_SECONDS) -> Iterator[None]:
     """Hold the companion state lock for the duration of the block."""
     path = Path(root).resolve() / "state" / ".state.lock"
+    with _file_lock(path, timeout):
+        yield
+
+
+@contextmanager
+def exchange_lock(exchange: Path, timeout: float = 60.0) -> Iterator[None]:
+    """Serialize expensive operations on one exchange without locking others."""
+    with _file_lock(exchange / "validation" / ".operation.lock", timeout):
+        yield
+
+
+@contextmanager
+def _file_lock(path: Path, timeout: float) -> Iterator[None]:
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = open(path, "a+b")
     try:

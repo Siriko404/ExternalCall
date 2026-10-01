@@ -21,6 +21,7 @@ from companion.core import (
 from companion.downloads import default_downloads_dir, finalize_exchange, finish_call
 from companion.repair import collect_defects, open_repair_round
 from companion.watch import WaitInconsistency, wait_for_event
+from companion.jobs import job_brief, prepare_job
 
 
 def run(
@@ -36,10 +37,16 @@ def run(
         command = options.command
         root = Path(options.root).resolve()
         if command == "prepare":
-            spec = _read_json_object(Path(options.spec), "preparation spec")
-            created_at = spec.pop("created_at", None)
-            now = datetime.fromisoformat(created_at) if created_at else datetime.now().astimezone()
-            result = prepare_call(root, spec, now)
+            if options.job:
+                result = prepare_job(root, _read_json_object(Path(options.job), "job"),
+                                     datetime.now().astimezone())
+            else:
+                spec = _read_json_object(Path(options.spec), "legacy preparation spec")
+                created_at = spec.pop("created_at", None)
+                now = datetime.fromisoformat(created_at) if created_at else datetime.now().astimezone()
+                result = prepare_call(root, spec, now)
+        elif command == "brief":
+            result = {"job_brief": job_brief(_read_json_object(Path(options.job), "job"))}
         elif command == "list":
             result = list_ready_calls(root)
         elif command == "show":
@@ -124,7 +131,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", required=True)
     subcommands = parser.add_subparsers(dest="command", required=True)
     prepare = subcommands.add_parser("prepare", exit_on_error=False)
-    prepare.add_argument("--spec", required=True)
+    source = prepare.add_mutually_exclusive_group(required=True)
+    source.add_argument("--job")
+    source.add_argument("--spec", help="legacy exchanges only")
+    brief = subcommands.add_parser("brief", exit_on_error=False)
+    brief.add_argument("--job", required=True)
     subcommands.add_parser("list", exit_on_error=False)
     show = subcommands.add_parser("show", exit_on_error=False)
     show.add_argument("--exchange", required=True)

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from companion.core import load_active_call, prepare_call, start_call
-from companion.downloads import finish_call, handle_completed_download
+from companion.downloads import finish_call, handle_completed_download, ingest_from_downloads
 from companion.repair import build_repair_prompt, collect_defects, open_repair_round
 
 
@@ -16,7 +16,7 @@ class RepairTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         self.sources = base / "sources"
         self.downloads = base / "Downloads"
         self.sources.mkdir()
@@ -125,8 +125,8 @@ class RepairTests(unittest.TestCase):
 
         defects = collect_defects(self.exchange)
 
-        self.assertEqual([defect["kind"] for defect in defects], ["MAIN_MISSING"])
-        self.assertEqual(defects[0]["target"], "result.json")
+        self.assertEqual({defect["kind"] for defect in defects}, {"MAIN_MISSING", "EXPECTED_ARTIFACT_ABSENT"})
+        self.assertIn("result.json", [d["target"] for d in defects])
 
     def test_hash_mismatch_reports_declared_and_actual_digests(self):
         wrong_digest = hashlib.sha256(b"different").hexdigest()
@@ -289,6 +289,20 @@ class RepairTests(unittest.TestCase):
         archived = self.exchange / "response" / "superseded" / "round1" / "result.json"
         self.assertEqual(archived.read_bytes(), original)
         self.assertEqual(finish_call(self.root)["status"], "COMPLETE")
+
+    def test_manual_repair_replaces_archive_and_envelope_preserving_original(self):
+        self.deliver(main=self.main_json_bytes(artifact_digest="0" * 64), report=self.report_bytes)
+        finish_call(self.root)
+        original = (self.exchange / "response" / "result.json").read_bytes()
+        open_repair_round(self.root, self.exchange_id, tab_id=42, download_baseline=[])
+        with zipfile.ZipFile(self.downloads / "fixture_outputs.zip", "w") as archive:
+            archive.writestr("result.json", self.main_json_bytes())
+            archive.writestr("report.md", self.report_bytes)
+        result = ingest_from_downloads(self.root, self.exchange_id, self.downloads)
+        self.assertEqual(result["conflicts"], [])
+        self.assertEqual(finish_call(self.root)["status"], "COMPLETE")
+        saved = self.exchange / "response" / "superseded" / "round1" / "result.json"
+        self.assertEqual(saved.read_bytes(), original)
 
     def test_repair_is_refused_when_nothing_is_wrong(self):
         self.deliver(report=self.report_bytes)

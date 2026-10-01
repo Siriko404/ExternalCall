@@ -69,6 +69,7 @@ copyPrompt.addEventListener("click", async () => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "HANDOFF_STATUS") {
+    showLaunchPrompt(message.handoff);
     refresh();
   }
 });
@@ -100,10 +101,13 @@ async function run(action) {
   }
 }
 
+let refreshGeneration = 0;
 async function refresh() {
+  const generation = ++refreshGeneration;
   let state;
   try {
     state = await send({ type: "GET_STATUS" });
+    if (generation !== refreshGeneration) return;
   } catch (error) {
     health.className = "dot down";
     companionLine.textContent = "Companion unavailable";

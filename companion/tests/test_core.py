@@ -21,7 +21,7 @@ from companion.core import (
 class CoreTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name) / "GptWebCall"
+        self.root = Path(self.temp.name) / "ExternalCall"
         self.sources = Path(self.temp.name) / "sources"
         self.sources.mkdir()
         self.now = datetime(

@@ -1,8 +1,8 @@
-"""Register the webcall skills with Claude Code, without typing /plugin.
+"""Register the externalcall skills with Claude Code, without typing /plugin.
 
 `/plugin marketplace add` followed by `/plugin install` writes exactly two keys
 into ~/.claude/settings.json: the marketplace under `extraKnownMarketplaces`,
-and `webcall@webcall-local` under `enabledPlugins`. This writes the same two, so
+and `externalcall@externalcall-local` under `enabledPlugins`. This writes the same two, so
 an agent can install the skills itself instead of handing the operator commands
 to paste.
 
@@ -23,8 +23,8 @@ import sys
 import time
 from pathlib import Path
 
-MARKETPLACE = "webcall-local"
-PLUGIN = "webcall@webcall-local"
+MARKETPLACE = "externalcall-local"
+PLUGIN = "externalcall@externalcall-local"
 
 
 def settings_path() -> Path:
@@ -32,7 +32,7 @@ def settings_path() -> Path:
 
 
 def plugin_dir() -> Path:
-    return Path(__file__).resolve().parents[1] / "skill" / "webcall"
+    return Path(__file__).resolve().parents[1] / "skill" / "externalcall"
 
 
 def main(argv: list[str]) -> int:
@@ -55,13 +55,17 @@ def main(argv: list[str]) -> int:
     entry = {"source": {"source": "directory", "path": str(source)}}
     marketplaces = settings.setdefault("extraKnownMarketplaces", {})
     enabled = settings.setdefault("enabledPlugins", {})
-    already = marketplaces.get(MARKETPLACE) == entry and enabled.get(PLUGIN) is True
+    already = (marketplaces.get(MARKETPLACE) == entry and enabled.get(PLUGIN) is True
+               and enabled.get("webcall@webcall-local") is not True)
     if already:
         print(f"already registered: {PLUGIN} -> {source}")
         return 0
 
     marketplaces[MARKETPLACE] = entry
     enabled[PLUGIN] = True
+    # Retire the old namespace during an explicit installation, preserving backup.
+    if "webcall@webcall-local" in enabled:
+        enabled["webcall@webcall-local"] = False
 
     if dry_run:
         print(f"would write {target}:")
@@ -81,8 +85,7 @@ def main(argv: list[str]) -> int:
     os.replace(staging, target)
 
     print(f"registered {PLUGIN} -> {source}")
-    print("Restart Claude Code. Commands register at startup, so /webcall:init,")
-    print("/webcall:prep and /webcall:menu appear in the next session, not this one.")
+    print("Restart Claude Code for /externalcall:prep and /externalcall:manage.")
     return 0
 
 

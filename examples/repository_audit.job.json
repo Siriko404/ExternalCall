@@ -1,0 +1,56 @@
+{
+  "title": "Repository optimization audit",
+  "purpose": "Decide which simplifications to implement next.",
+  "task": "Assess the supplied repository evidence and rank concrete simplifications.",
+  "scope": {
+    "in": [
+      "Inspect the supplied evidence and propose changes."
+    ],
+    "out": [
+      "Modify product files or publish changes."
+    ]
+  },
+  "constraints": [
+    "Use only supplied files.",
+    "Distinguish tested defects from proposals."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Rank actionable simplifications with supporting evidence.",
+      "acceptance": {
+        "condition": "Each ranked change identifies evidence, effect, risk and a finite verification test.",
+        "method": "review",
+        "evidence": [
+          "report.md"
+        ],
+        "reviewer": "terminal"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "report.md",
+      "description": "Ranked findings with evidence and open decisions."
+    }
+  ],
+  "sources": [
+    {
+      "path": "README.md",
+      "role": "Entry-point description; inspect its linked features against supplied evidence."
+    }
+  ],
+  "stop_condition": "Deliver the ranked report; mark gaps PARTIAL/BLOCKED with explicit limitations.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      }
+    }
+  }
+}

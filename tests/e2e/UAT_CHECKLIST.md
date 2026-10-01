@@ -1,17 +1,27 @@
-# Live non-sensitive UAT checklist
+# ExternalCall live browser UAT
 
-Automated tests do not substitute for this manual Chrome/ChatGPT check. Use only a harmless fixture request.
+Record browser/version, provider, commit and actual observation for each case.
+These cases have not been executed by the automated runner.
 
-- [ ] Run `scripts\install.ps1` with the installed unpacked extension's ID, then load `extension\` unpacked in Chrome.
-- [ ] Prepare a fixture call. Click its row in the panel's top list and verify the opened drawer shows its exact request id, the one inputs ZIP going up, and the one archive expected back.
-- [ ] Click Go. Confirm ChatGPT opens and the panel waits for a real Attach files click.
-- [ ] Click Attach files yourself. Confirm exactly the manifest files attach; the extension never clicks Send.
-- [ ] Send manually. Download an unrelated file, then the main JSON and valid artifact.
-- [ ] Confirm the unrelated file remains in Downloads and the matching files move to the exchange response directory.
-- [ ] Click Done and validate. Confirm the panel shows `COMPLETE` and `validation\VALIDATION_REPORT.json` exists.
-- [ ] Start another fixture; download a hash-mismatched artifact and confirm Done reports it invalid/incomplete without overwriting anything.
-- [ ] Restart Chrome during an active call. Confirm that call's row offers Resume attachment and Stop, that Resume stays disabled until a destination is chosen, and that nothing resends or reattaches automatically.
-- [ ] Confirm the finished call moved to the Previous list, and that its row shows the delivery state alone — no work or hash verdict anywhere in the panel.
-- [ ] Open a finished call and click Prepare a copy. Confirm a new PREPARED call appears in the top list, the original keeps its state and its response files, and nothing was sent.
-- [ ] Stop a call before sending it, then Prepare a copy from its row. This is the only route out of STOPPED — go, done and repair all refuse it.
-- [ ] With the extension disabled, follow `docs\MANUAL_FALLBACK.md` and confirm validation can still be completed safely.
+- [ ] ChatGPT new conversation: Go, site Attach, exact input ZIP, generated launch
+  instruction, operator Send, one outputs ZIP, Done.
+- [ ] Claude new conversation: repeat the same flow using that provider explicitly.
+- [ ] Current conversation: explicit provider/current-thread selection, no unexpected
+  new tab or automatic message insertion before user attachment.
+- [ ] Two simultaneous calls: reverse download order; each return belongs to its
+  generated attempt. Repeated Done retrieves that call's report.
+- [ ] Attach/typing failure: error or copy-prompt fallback becomes visible after the
+  asynchronous operation ends; Send remains an operator action.
+- [ ] Honest PARTIAL/BLOCKED: valid delivery, incomplete work, semantic review pending.
+- [ ] Invalid schema/hash/CRC and duplicate paths: explicit defects, bytes preserved.
+- [ ] Correction: fresh attempt/package, explicit Attach and Send in the chosen
+  original-provider conversation; late old ZIP cannot satisfy the correction.
+- [ ] Worker restart: durable call remains discoverable; stale callbacks cannot
+  recreate dropped handoffs.
+- [ ] Browser restart: Resume asks provider/destination; no guessed previous tab.
+- [ ] Wrong-provider or navigated-away repair tab: refusal with Resume instruction.
+- [ ] Manual fallback: download one ZIP and validate through the explicit CLI route.
+
+For a local fixture use tests/mock_chatgpt/index.html after running its
+build_fixtures.py and serving the directory. This page tests manual file input
+and ZIP downloads; it is not evidence of ChatGPT/Claude integration success.

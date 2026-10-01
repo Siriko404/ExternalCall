@@ -3,7 +3,7 @@
 /calls/
 /state/
 /extension/dist/
-/native-host/com.sina.gptwebcall.json
+/native-host/com.sina.externalcall.json
 /coverage/
 *.coverprofile
 *.tmp
@@ -17,4 +17,5 @@ Thumbs.db
 /nativehost.exe
 .pytest_cache/
 /HANDOFF.md
+/.venv/
 /INCIDENT_*.md

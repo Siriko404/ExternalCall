@@ -1,8 +1,4 @@
 #!/bin/sh
-# The Linux counterpart of gptwebcall.cmd: run the companion CLI from anywhere.
-# readlink -f follows a symlink of this script into ~/.local/bin back to the
-# checkout, so the root is the directory the real script lives in either way.
 set -eu
 root=$(dirname -- "$(readlink -f -- "$0")")
-cd "$root"
-exec python3 -m companion.cli --root "$root" "$@"
+exec "$root/externalcall" "$@"

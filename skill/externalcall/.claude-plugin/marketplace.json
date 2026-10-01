@@ -1,0 +1,13 @@
+{
+  "name": "externalcall-local",
+  "owner": {
+    "name": "Siriko404"
+  },
+  "plugins": [
+    {
+      "name": "externalcall",
+      "source": "./",
+      "description": "Operate ExternalCall: install and smoke-test it, prepare one bounded call, and run every other action."
+    }
+  ]
+}

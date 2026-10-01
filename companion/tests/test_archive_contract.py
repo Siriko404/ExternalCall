@@ -40,7 +40,7 @@ class ArchiveContractTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         sources = base / "sources"
         sources.mkdir()
 
@@ -171,6 +171,77 @@ class ArchiveContractTests(unittest.TestCase):
         self.assertEqual(report["status"], "COMPLETE")
         self.assertEqual(report["response_status"], "PARTIAL")
         self.assertFalse(report["work_complete"])
+        self.assertEqual(collect_defects(self.exchange), [])
+
+    def test_members_of_a_nested_packaging_archive_are_not_missing(self):
+        """An inner zip inside the outputs archive is still inside the archive.
+
+        WC15 delivered main.ts and index.html inside wc15_visual_repo.zip inside
+        wc15_outputs.zip, and the validator reported all five inner files
+        missing through three repair rounds against a byte-exact delivery.
+        """
+        inner = io.BytesIO()
+        with zipfile.ZipFile(inner, "w") as grouped:
+            grouped.writestr("client/src/main.ts", b"console.log(1);\n")
+            grouped.writestr("WC15_APPLY.md", b"# apply\n")
+        inner_bytes = inner.getvalue()
+        outer = io.BytesIO()
+        with zipfile.ZipFile(outer, "w") as archive:
+            archive.writestr("inner_pack.zip", inner_bytes)
+            archive.writestr("loose.md", b"loose\n")
+        outer_bytes = outer.getvalue()
+        (self.exchange / "response" / "pack_outputs.zip").write_bytes(outer_bytes)
+        entries = [
+            {
+                "filename": "pack_outputs.zip",
+                "status": "CREATED",
+                "media_type": "application/zip",
+                "size": len(outer_bytes),
+                "sha256": hashlib.sha256(outer_bytes).hexdigest(),
+            },
+            {
+                "filename": "inner_pack.zip",
+                "status": "CREATED",
+                "media_type": "application/zip",
+                "size": len(inner_bytes),
+                "sha256": hashlib.sha256(inner_bytes).hexdigest(),
+            },
+            {
+                "filename": "main.ts",
+                "status": "CREATED",
+                "media_type": "text/typescript",
+                "size": 16,
+                "sha256": hashlib.sha256(b"console.log(1);\n").hexdigest(),
+            },
+            {
+                "filename": "WC15_APPLY.md",
+                "status": "CREATED",
+                "media_type": "text/markdown",
+                "size": 8,
+                "sha256": hashlib.sha256(b"# apply\n").hexdigest(),
+            },
+            {
+                "filename": "loose.md",
+                "status": "CREATED",
+                "media_type": "text/markdown",
+                "size": 6,
+                "sha256": hashlib.sha256(b"loose\n").hexdigest(),
+            },
+        ]
+        main = {
+            "request_id": "request_pack",
+            "status": "COMPLETE",
+            "artifacts_manifest": entries,
+            "delivery": ["pack_response.json", "pack_outputs.zip"],
+        }
+        (self.exchange / "response" / "pack_response.json").write_text(
+            json.dumps(main) + "\n", encoding="utf-8"
+        )
+
+        report = validate_response(self.exchange)
+
+        self.assertEqual(report["status"], "COMPLETE")
+        self.assertEqual(report["missing_files"], [])
         self.assertEqual(collect_defects(self.exchange), [])
 
 

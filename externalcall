@@ -1,0 +1,11 @@
+#!/bin/sh
+# The Linux counterpart of externalcall.cmd: run the companion CLI from anywhere.
+# readlink -f follows a symlink of this script into ~/.local/bin back to the
+# checkout, so the root is the directory the real script lives in either way.
+set -eu
+root=$(dirname -- "$(readlink -f -- "$0")")
+cd "$root"
+if [ -x "$root/.venv/bin/python" ]; then
+  exec "$root/.venv/bin/python" -m companion.cli --root "$root" "$@"
+fi
+exec python3 -m companion.cli --root "$root" "$@"

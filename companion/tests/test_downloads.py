@@ -20,7 +20,7 @@ class DownloadTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         self.sources = base / "sources"
         self.downloads = base / "Downloads"
         self.sources.mkdir()
@@ -489,8 +489,8 @@ class DownloadTests(unittest.TestCase):
         from companion.native_host import dispatch
 
         self.delivery_archive(main=self.main_json_bytes(artifacts=False), report=None)
-        previous = os.environ.get("GPTWEBCALL_DOWNLOADS_DIR")
-        os.environ["GPTWEBCALL_DOWNLOADS_DIR"] = str(self.downloads)
+        previous = os.environ.get("EXTERNALCALL_DOWNLOADS_DIR")
+        os.environ["EXTERNALCALL_DOWNLOADS_DIR"] = str(self.downloads)
         try:
             report = dispatch(
                 self.root,
@@ -498,16 +498,16 @@ class DownloadTests(unittest.TestCase):
             )
         finally:
             if previous is None:
-                os.environ.pop("GPTWEBCALL_DOWNLOADS_DIR", None)
+                os.environ.pop("EXTERNALCALL_DOWNLOADS_DIR", None)
             else:
-                os.environ["GPTWEBCALL_DOWNLOADS_DIR"] = previous
+                os.environ["EXTERNALCALL_DOWNLOADS_DIR"] = previous
 
         self.assertEqual(report["status"], "COMPLETE")
         self.assertTrue((self.exchange / "response" / "result.json").is_file())
 
     # ---- tolerate a junk model manifest on byte-perfect files ----
 
-    def test_junk_manifest_on_sound_files_is_complete_but_unverified(self):
+    def test_junk_manifest_retains_sound_files_but_reports_defects(self):
         exchange, main_path = self._exchange_expecting_an_artifact()
         # A manifest shaped the way ChatGPT actually returned it: main JSON listed
         # as its own artifact, no per-file status, prose in delivery.
@@ -527,10 +527,12 @@ class DownloadTests(unittest.TestCase):
 
         report = validate_response(exchange)
 
-        self.assertEqual(report["status"], "COMPLETE")
+        self.assertEqual(report["status"], "INCOMPLETE")
         self.assertFalse(report["manifest_verified"])
         self.assertEqual(report["response_status"], "COMPLETE")
-        self.assertEqual(report["invalid_files"], [])
+        self.assertTrue(report["invalid_files"])
+        self.assertTrue(main_path.is_file())
+        self.assertTrue((exchange / "response" / "declared_outputs.zip").is_file())
 
     def test_junk_manifest_with_missing_artifact_is_still_incomplete(self):
         exchange, main_path = self._exchange_expecting_an_artifact()

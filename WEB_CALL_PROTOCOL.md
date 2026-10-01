@@ -1,693 +1,116 @@
-# GPT Web Call Protocol
+# ExternalCall contract
 
-System root: the directory containing this file. Every path and command below is relative to it.
+System root: the directory containing this file. The skills are the operating
+surface; this file defines the contract and recovery facts.
 
-This file is the complete reference for the installed GPT Web Call system: every rule, every command, every recovery path.
+## Job preparation
 
-**It is not the operating surface.** An agent session operates this system through the `webcall` skills and nothing else — `/webcall:init` installs it, `/webcall:prep` prepares a call, `/webcall:update` moves it to the latest published version, and `/webcall:menu` covers every other action. Those skills carry what a session needs before its first action and cite this file for the rest, so nothing here has to be held in memory in order to act safely. If something you need is missing from a skill, add it there rather than routing around them. Installation is in `skill/README.md`.
+`/externalcall:prep` establishes purpose, task, scope in/out, constraints,
+requirements, acceptance evidence/reviewer, deliverables, approved sources and
+stopping conditions. Inspect discoverable facts before asking questions. Ask
+only consequential missing decisions in dependency order. Preserve hypotheses,
+assumptions and verified facts separately. Research unknowns can be the assignment;
+unresolved scope decisions prevent preparation.
 
-The exception is the human, not the agent. The manual fallback below stays usable by hand with the extension disabled and no skill loaded. That is recovery, and it is permanent.
+Show the brief for every package. An already clear authorized instruction does
+not need another approval. Semantic judgment remains with the user and agent.
 
-## Fresh-session contract
+The agent authors one job JSON. `./externalcall brief --job job.json` checks it;
+`./externalcall prepare --job job.json` compiles the request. Windows uses
+`externalcall.cmd` with the same arguments. `examples/repository_audit.job.json`
+shows the supported structure. Source paths are relative to the working directory
+or absolute. The wrapper runs from the checkout root.
 
-These are the obligations the skills enforce. They are stated here so the contract has one authoritative home, and so a session can check a skill against them:
-
-1. Treat the directory containing this file as the system root and the filesystem there as operational authority.
-2. Read "RULE #1 OF PROMPT ENGINEERING: never bias the call" before writing any prompt, request or response schema.
-3. Run `active` and `list` before preparing anything, so it does not collide with an existing call.
-4. Read "Filenames are the routing key" before writing any preparation spec.
-5. Classify the requested work before substantive reasoning.
-6. Prepare a Web call only when the work is reasoning-heavy or the operator explicitly requests one.
-7. Give a call COMPLETE context by default — the sender is not the expert and cannot know what will matter — while telling the responder to explore it on demand; never upload a repository or directory implicitly, and never private material.
-8. Explain to the operator what the prepared call will do, then let the operator control Attach, Send, downloads, and Done.
-9. Treat the returned work as advisory even after deterministic file validation passes.
-10. Preserve each exchange and record accepted conclusions in the external project's own ledger or artifacts.
-
-Several calls may be active at once, each bound to its own ChatGPT tab. A single-call workflow remains the common case, and every command that acts on one active call still works without naming it when exactly one active call exists. The system is intentionally filesystem-only; `calls\`, `state\`, request snapshots, response files, manifests, and validation reports preserve continuity across sessions and compaction.
-
-## RULE #1 OF PROMPT ENGINEERING: never bias the call
-
-**This is the first rule, above every other consideration in this document, and it applies to every prompt written anywhere, not only to Web calls.**
-
-> Your job is to define the **persona** and the **instructions** of an agent that has exactly the expertise you need and knows how to navigate the task professionally and in depth.
-> Your job is **not** to smuggle your own answer into the prompt and get it echoed back.
-
-You are commissioning an expert precisely because you expect a better answer than your own. Every candidate solution you put in the prompt destroys that. The model will anchor on it, elaborate it, and return it wearing your words — and you will read your own reasoning back and mistake the agreement for confirmation. A call that mirrors you cost a full budget and taught you nothing.
-
-**Contamination is irreversible inside a call.** A model cannot un-see a suggestion. There is no recovering the independent answer once the prompt contains yours.
-
-### The dividing line
-
-| Belongs in the prompt | Never belongs in the prompt |
-|---|---|
-| **Measured facts** — sizes, counts, hashes, addresses you verified | **Your conclusions drawn from those facts** |
-| **Verbatim quotes** of what the owner actually said | Your paraphrase of what they "really meant" |
-| **Environment constraints** — no MSVC toolchain, stateless calls, filename routing | The workaround you invented for that constraint |
-| **The outcome required** and how it will be judged | The structure, architecture, or method you think produces it |
-| **Evidence standard** — what counts as proof | Which specific things you expect to be proven |
-| **Failure history**, with evidence of each failure | Your theory of the root cause |
-| **The persona** — the expertise the task demands | A worked example that becomes the template |
-
-### Bias vectors that hide in plain sight
-
-These are the ones that slip past, because they look like helpfulness or rigour:
-
-1. **Candidate lists.** "Suggested roles: A, B, C, D, E — adopt, reject or replace." The escape hatch is decoration. You will get A–E back, lightly reworded.
-2. **Enum fields in the response schema.** `"mechanism": {"enum": ["deliberate-overlap", "interface-contract", "seam-owner-rule"]}` pre-enumerates the entire solution space. A better fourth answer becomes literally inexpressible.
-3. **Solution-shaped schema fields.** If your required fields are named after your design, the schema *is* your design and no other answer can validate.
-4. **Deliverable filenames encoding structure.** Demanding `R2_ROLE<N>_*.md` presupposes round 2 is organised by roles.
-5. **Analytical asides.** "Weight is effort, not bytes — 22 MB of disassembly is mostly inert." That is the expert's job, done for them and no longer testable.
-6. **Named traps and warnings.** "The trap here is X." You just told them what to conclude.
-7. **Architecture diagrams of the thing being designed.** The most direct form of the disease.
-
-### The test to apply before sending
-
-Read your own prompt and schema and ask:
-
-> **Could an answer substantially better than mine — and structurally different from mine — be expressed in this format and validate against this schema?**
-
-If no, the call is biased. Rewrite it. Prefer schema fields that describe *outcomes and evidence* (`what was decided`, `why`, `what it is checked against`) over fields that describe *your mechanism*.
-
-### What a well-formed ask looks like
-
-Specify, in this order: **who the agent is**, **what must be true of the answer**, **what is forbidden**, **what evidence is required**, **the facts they need**. Then stop. Let the expertise navigate.
-
-Constraints imposed by the owner or by the environment are not bias — state them plainly and completely. The distinction is authorship: a requirement handed down from the owner, or a fact measured from the world, belongs in the prompt; a solution you thought of does not.
-
-### Complete context, explored on demand
-
-> The sender is not the expert. You cannot know the extent of the context that bears on the commissioned expert's work, so you cannot curate the package down to a "smallest sufficient" set without silently dropping the one file that would have changed the answer.
-
-Therefore: default to giving a call **complete context** — every file that could plausibly bear on the question, within the privacy rules (private material, secrets, and directories are still refused; completeness means everything *permitted*, not everything on disk).
-
-Completeness is deliberate, and the request must say so — and say what it is *not*:
-
-> The attached context is intentionally complete: the sender is not the expert and cannot judge in advance which of it matters. Do NOT read everything end-to-end simply because it was provided. Explore it on demand, as the work requires: read the brief and the request fully; consult the remainder selectively, as you would a reference corpus.
-
-This is a process instruction, not steering — it constrains how the responder works, never what they conclude. What stays forbidden is unchanged: complete context must not become an excuse to smuggle in conclusions, and the anti-bias test above still applies to every file chosen.
-
----
+The compiler assigns attempt IDs and names, snapshots approved evidence and
+creates JOB.json, WEB_REVIEW_REQUEST.json, WEB_RESPONSE_SCHEMA.json,
+package_response.py and 000_READ_ME_FIRST.md. These are generated projections.
+The job revision binds evidence hashes and task schema. Private source paths stay
+local. Internal calls/state/Git and recognized credential paths cannot be inputs;
+export a sanitized approved artifact when an earlier response is needed.
 
 ## One zip up, one zip down
 
-**Every exchange is exactly one file up and exactly one file back. This is not a style preference; it is enforced at preparation and it changes how you write a spec.**
-
-Up:
-
-| File | What it is |
-|---|---|
-| `<subject_slug>_inputs.zip` | Built by the companion. Contains every file listed in `input_files` at the archive root under its packaged name, plus the generated prompt as `000_READ_ME_FIRST.md`. |
-
-That is the whole upload. ChatGPT refuses loose `.md` attachments, so a prompt sent beside the archive strands the call it was meant to govern; the prompt therefore travels inside. There is no flag to send two files instead, and a spec asking for one is refused at preparation.
-
-Down:
-
-| File | What it is |
-|---|---|
-| `<pass>_outputs.zip` | Everything the call returns, including the main response as `<pass>_response.json` at the archive root. |
-
-`expected_artifacts` is therefore exactly one `.zip`, never empty and never more. `prepare` refuses anything else, so two artifacts or one that is not an archive is an error at preparation rather than a surprise at download.
-
-`expected_main_json` still names the main response. It is now the name of a **member** of that archive rather than a download of its own, and the companion writes it out beside the archive when the archive lands. Everything downstream — validation, `defects`, a repair round — reads it from `response\` exactly as before and knows nothing about where it travelled.
-
-**A loose main JSON is refused, not tolerated.** A responder that also offers the main JSON as its own download has broken the rule, and filing it quietly would let that delivery validate as though it had obeyed. The download is reported as ignored with its filename in the reason, and stays where Chrome put it. The archive is still the delivery; if the response is not inside it, the archive is refused with that filename in the error and kept as evidence.
-
-**Why one file back and not two.** A response used to arrive as several downloads in an order nobody controlled, so the companion needed a pool to hold whatever arrived before the main JSON could explain it. A download parked in that pool was invisible: three separate calls ended with files sitting in the Downloads folder, the panel showing nothing wrong, and validation later reporting them missing. One file cannot arrive out of order with itself. The pool is gone, and a download that matches no active call is now reported as ignored the moment it lands.
-
-**Say it in the prompt.** The companion cannot make ChatGPT return one archive; only the prompt can. Every prompt must state that the reply is exactly one downloadable `.zip`, name it, name the main JSON inside it, and say that every other created file goes in there too.
-
-### The prompt inside the archive
-
-The prompt is named `000_READ_ME_FIRST.md`. Inside an archive the name is the only thing telling a model which file governs, and the bundle is written in casefolded name order, so the leading `000` puts it first in the archive as well as first in any listing the model prints.
-
-`attach_files` is that one archive, and everything that reads `attach_files` — the extension, the manual fallback — follows from it. The loose prompt still sits in `request\` as part of the provenance record, exactly like every other input.
-
-You still enumerate `input_files` normally. The companion copies each one into `request/` and then packs them. Both the loose files and the archive stay on disk: the loose files are the provenance record whose hashes are verified, and the archive is what is uploaded. Only the archive is handed to the file chooser.
-
-### The launch line
-
-An archive arriving into a fresh conversation with no message gets a model asking what to do with it, and the call stalls before it has begun. The companion generates one line at Go naming the archive and `000_READ_ME_FIRST.md`. The panel does **not** type it at Go: it holds the line on the handoff until the operator's attachment has landed, then types it into the composer — so the composer holds the archive and the instruction together, and there is no window in which a stray Enter sends a bare prompt. It still does not send: the operator reviews both, then clicks Send themselves.
-
-**Only into a fresh conversation.** A thread the operator is already working in has the context that makes the archive make sense, so it is not typed there. Sending into the current conversation is the operator's own thread, and putting words in it uninvited is not the extension's business. The text still travels with the call, so the panel can offer it if it turns out to be wanted.
-
-The line is about routing and nothing else. Anything describing the work belongs in the prompt inside the archive, where it is hashed with the rest of the request instead of typed into a composer and lost.
-
-If typing fails — the page has not finished loading, or the composer moved — the call is not aborted. The panel shows the text with a copy button and the operator pastes it. Monitoring has already started by then, and abandoning the call would cost more than a paste.
-
-The archive is byte-identical for identical inputs. Zip entries normally carry a modification time, which would make the digest change on every preparation and defeat verifying the archive against its own manifest record, so entry timestamps and ordering are fixed.
-
-**Say the rule in the prompt as well.** The companion cannot make ChatGPT return one archive; only the prompt can. Every prompt must state that the reply is exactly one downloadable `.zip`, name it, name the main JSON inside it, and say that every other created file goes in there too.
-
-**One thing this rule costs you.** Natively attached files are read directly. An archive has to be extracted with the code tool first, and a model that extracts carelessly can skim rather than read. For any call where thoroughness is the point, make the prompt require an inventory: unzip, list every extracted file with its byte size, and echo that list before answering. A shallow read then shows up in the reply instead of hiding in it.
-
-## Delivery integrity is not work completeness
-
-**These are two different facts and the validator reports them separately. Conflating them was a real bug that fired on every honest response.**
-
-`status` in `VALIDATION_REPORT.json` describes the **delivery**: every promised file arrived and each one hashes to what the response said it would. That is objective, computable, and it is what `invalid_files` means. A name in `invalid_files` tells you to stop reading and repair.
-
-`response_status` is the responder's **own account of its work**, one of `COMPLETE`, `PARTIAL` or `BLOCKED`, reported and never punished. `work_complete` is the convenience boolean.
-
-A `PARTIAL` response delivered intact is therefore `status: COMPLETE`, `response_status: PARTIAL`. **Read it.** The files are perfect and the responder has told you where its gaps are.
-
-The bug: any status other than `COMPLETE` used to put the main JSON into `invalid_files`, alongside corrupt downloads and hash mismatches. The exchange went to `INCOMPLETE` and every reader was told to repair a flawless response. The contradiction lived inside one module, since the parser accepted `PARTIAL` as a valid status and the validator then called the file invalid for carrying one.
-
-What made it bite repeatedly is that prompts here explicitly ask for `PARTIAL` when something cannot be settled, because a partial answer that admits its gaps is worth more than a confident one built on a skim. So the system punished precisely the behaviour it requested, and did so on every such call. It shipped because no test covered a `PARTIAL` response that arrived intact.
-
-The same principle governs the expected-artifact backstop. An artifact the call expected must arrive even when the main JSON forgets to declare it, so a dropped deliverable cannot validate as complete. But forgetting is not declaring: a response that names the artifact and marks it `MISSING` or `NOT_CREATED` has reported its absence rather than hidden it, and is not counted missing again.
-
-**When you write a prompt, keep asking for `PARTIAL`.** It no longer costs anything.
-
-## Declared artifacts may live inside the archive
-
-An artifact the responder declares is either a file that came down beside the main JSON or a member of the outputs archive that did. Both carry a declared size and SHA-256, both are verified against it, and only the lookup differs.
-
-This matters because the two rules above pull in opposite directions if read carelessly. "Every returned file goes inside one archive" and "every additional file is listed once in `artifacts_manifest`" together mean the manifest routinely enumerates files that are not in `response\` at all. Treating those as undelivered downloads reported one real forty-three-file archive as forty-four defects, and dropped a byte-exact delivery into the unverified fallback, so the per-member hashes the responder had supplied were never spent.
-
-Keep the two lists distinct:
-
-| List | Contains |
-|---|---|
-| `artifacts_manifest` | every created file, including archive members, each with its own hash |
-| `delivery` | only what was downloadable: the outputs archive |
-
-Filename routing reads neither of these for the archive's members; the archive's own name is the only thing ever matched against a download.
-
-## Filenames are the routing key
-
-**This is the one rule that makes the whole system work. Read it before writing any preparation spec.**
-
-Chrome does not tell an extension which tab produced a download. `chrome.downloads.DownloadItem` carries no tab id. The companion therefore decides which call a downloaded file belongs to **by its filename and nothing else**.
-
-That has one absolute consequence:
-
-> **No two calls that can still receive files may ever expect the same filename.**
-> Not the same main JSON name. Not the same artifact name. Not a main JSON of one call matching an artifact of another. Comparison is case-insensitive.
-
-A call can still receive files while it is `PREPARED` or `ACTIVE`. Once it is `COMPLETE`, `INCOMPLETE`, or `STOPPED` it releases its names and they may be reused.
-
-A call that was prepared and then superseded therefore holds its names forever, because nothing moves a `PREPARED` call out of that state on its own and `stop` only works on an active one. Either give the corrected call distinct filenames, or `delete --exchange` the superseded one to release them.
-
-This is enforced, not merely requested. `prepare` refuses a spec whose `expected_main_json` or any `expected_artifacts` entry is already claimed, and names the call that holds it. `core.py` repeats the check against running calls as a backstop for hand-edited manifests. A name that slips through both and is claimed by two running calls produces `AMBIGUOUS`, and the file is left in the downloads folder untouched rather than delivered to the wrong exchange.
-
-**Declare the archive up front.** Add `expected_artifacts` to the preparation spec naming the single archive the call should return besides the main JSON:
-
-```json
-{
-  "subject": "deck audit numbers pass",
-  "request_id": "deck-audit-numbers-v1",
-  "expected_main_json": "numbers_response.json",
-  "expected_artifacts": ["numbers_outputs.zip"],
-  "prompt_text": "...",
-  "input_files": []
-}
-```
-
-Declaring it buys three things: the collision is caught when you author the spec rather than mid-run, a promised archive that the main JSON silently drops is reported as missing instead of validating as complete, and the failure names the file rather than describing a symptom. Because everything comes back inside one archive, an exchange exposes exactly one name to download routing.
-
-**How to name files so collisions cannot happen.** Prefix every deliverable with the call's own short pass name, the same token used in the subject and request ID. `numbers_response.json`, `numbers_outputs.zip`. Never `result.json`, `response.json`, `report.md`, `findings.md`, or `output.json`; generic names are exactly the ones two calls will pick independently.
-
-## Parallel calls
-
-Several calls may run at once, each bound to its own ChatGPT tab.
-
-- Each active call is bound to one tab, and a tab may drive only one call.
-- An artifact downloaded before any main JSON waits in a shared pending pool and is released to whichever call's main JSON later names it. Distinct filenames are what make that release unambiguous.
-- `done`, `stop`, and `repair` take `--exchange`. With exactly one active call the flag may be omitted; with several, omitting it is an error rather than a guess.
-- Each armed tab shows Chrome's "being debugged" banner until its files are attached.
-- The operator still drives every call by hand: Go, Attach, Send, download, Done, once per call. Parallel removes the waiting, not the clicking.
-
-## Triage
-
-Before substantive work, explicitly decide whether the task is reasoning-heavy.
-
-Reasoning-heavy work includes planning or architecture, investigation or diagnosis, deep web research, high-stakes academic/technical/legal/financial judgment, synthesis across long or conflicting sources, ambiguous trade-offs, substantial artifact design, and audits that benefit from an independent reasoning pass.
-
-Routine deterministic work includes direct file operations, mechanical formatting, running an approved plan, small unambiguous corrections, and exact lookups from a known authority.
-
-- If reasoning-heavy: pause before the substantive reasoning and prepare a bounded Web call.
-- If routine: proceed locally.
-- If uncertain and the consequence matters: use a Web call.
-
-Do not use a Web call to implement or repair GPT Web Call itself unless the operator explicitly requests that exception.
-
-## Call decomposition and continuation
-
-Do not mechanically pre-plan a long chain of calls when the correct reasoning process is itself uncertain. The first bounded call may be a planning/architecture call that asks ChatGPT Web to recommend the necessary reasoning stages, number and types of later calls, dependencies, and context required for each.
-
-Codex or Claude Code then evaluates that advice and prepares only the next warranted exchange. Every later call is separately packaged and authorized by the operator. After each result, reassess whether to accept and integrate it, request criticism or correction, run another specialist call, or stop. ChatGPT Web may recommend the process, but it does not create active calls, choose private files, or bypass the operator's authorization.
-
-## Roles and control boundary
-
-- Codex or Claude Code classifies the work, chooses context, creates the request, prepares the exchange, checks the returned work, and integrates only accepted conclusions.
-- ChatGPT Web performs the bounded assignment. It may reason, research when authorized, investigate, plan, or create requested artifacts.
-- The operator authorizes every call. The operator clicks **Go**, ChatGPT's real **Attach files**, ChatGPT's native **Send**, each download control, and **Done and validate**.
-- The extension never presses Send and never reads ChatGPT's response page.
-- The companion moves only downloads deterministically bound to the active call. Unrelated downloads remain untouched.
-
-## Agent call variant (Claude subagent instead of ChatGPT Web)
-
-A prepared exchange may be executed by a local Claude Code subagent instead of a ChatGPT Web tab. The package, filename reservations, snapshots, hashes, and validation are identical; only the responder changes. This rides the manual fallback: the subagent plays the role of the operator who places response files by hand.
-
-When to choose which responder:
-
-- **Subagent**: throughput work — extraction, synthesis of supplied sources, artifact drafting — where zero clicking, native parallelism, and direct file reading outweigh cross-model independence. The orchestrating session picks the model per call (e.g. sonnet for mechanical extraction, opus for hard synthesis) and always spawns in background.
-- **ChatGPT Web**: any call whose value is an independent reasoning pass — audits, red-teams, second opinions on Claude-produced work. A Claude subagent auditing Claude output shares its blind spots; do not route those to a subagent.
-
-Workflow:
-
-1. `prepare` the exchange exactly as for a Web call. Names are reserved; the request snapshot under `request\` is the provenance record. Do NOT arm the call (no Go, no tab binding); it stays `PREPARED`.
-2. Spawn the subagent (background) with instructions to: read every file in the exchange's `request\` directory (the loose snapshot files, not the archive); perform the assignment per `WEB_REVIEW_REQUEST.json` and `WEB_RESPONSE_SCHEMA.json`; write the expected main JSON and the single outputs archive — exact expected filenames — into the exchange's `response\` directory (the local responder writes both directly, since nothing is downloaded); compute real byte sizes and SHA-256 hashes for every artifact and record them in `artifacts_manifest` using the schema's field names verbatim; report PARTIAL or BLOCKED honestly rather than inventing content.
-3. Run `validate --exchange <exchange_id>` (works on a PREPARED exchange with manually placed files). Deterministic validation is unchanged: hashes, sizes, request ID binding, artifact accounting.
-4. Semantic acceptance is unchanged and remains the orchestrating session's job. Subagent output is advisory exactly as Web output is.
-5. Correction rounds: the extension repair flow does not apply. Diagnose with `defects --exchange`, then either continue the same subagent (send it the defect list) for mechanical delivery defects, or spawn a fresh subagent — new request ID, original exchange preserved — when the reasoning itself must be redone.
-
-Rules that do not relax: one exchange per responder at a time, no filename collisions with any call that can still receive files, no silent edits to returned evidence, the operator authorizes each call before it is spawned, and never execute returned scripts or active content merely because validation passed.
-
-## Status check and command location
-
-Commands are run from the system root, the directory holding the wrapper —
-`gptwebcall.cmd` on Windows, `gptwebcall` on Linux:
-
-```sh
-cd <system root>
-./gptwebcall active      # Windows: .\gptwebcall.cmd active
-./gptwebcall list
-```
-
-From another directory, invoke the wrapper by absolute path:
-
-```sh
-'<system root>/gptwebcall' active
-```
-
-Every CLI command emits one JSON object. `ok: true` contains `result`; `ok: false` contains `error` and exits nonzero.
-
-## Exact request construction
-
-Every call needs three things before preparation:
-
-1. `WEB_REVIEW_REQUEST.json` — the intellectual assignment and authority contract.
-2. `WEB_RESPONSE_SCHEMA.json` — the requested response structure supplied to ChatGPT.
-3. A preparation spec — tells the local companion what to snapshot and what main filename to expect.
-
-Use a unique, stable `request_id` in both the request and preparation spec. Use a concise, safe subject. Give every source an explicit packaged filename. Use absolute source paths. Never supply a prompt file: the companion generates `000_READ_ME_FIRST.md` itself and packs it, with everything else, into `<subject_slug>_inputs.zip`.
-
-Name every returned file after the call itself and declare the artifacts in `expected_artifacts`. See "Filenames are the routing key" above; a generic name such as `result.json` will be refused as soon as a second call wants it.
-
-### WEB_REVIEW_REQUEST.json template
-
-The request may add task-specific fields, but it should normally contain:
-
-```json
-{
-  "request_id": "unique-project-task-v1",
-  "objective": "One bounded outcome",
-  "why_this_call": "Why independent reasoning is useful",
-  "authority_hierarchy": [
-    "Highest-authority supplied file",
-    "Secondary supplied context"
-  ],
-  "scope": {
-    "included": ["Exact work to perform"],
-    "excluded": ["Work or claims that are not authorized"]
-  },
-  "web_research": {
-    "allowed": false,
-    "rules": "If allowed, state source and recency requirements"
-  },
-  "requested_work": ["Concrete deliverable or reasoning task"],
-  "questions": [
-    {"id": "q1", "question": "Exact question to answer"}
-  ],
-  "required_artifacts": [],
-  "acceptance_criteria": ["Observable completeness condition"],
-  "stop_condition": "Return PARTIAL or BLOCKED instead of inventing missing evidence"
-}
-```
-
-The request must distinguish source authority from permission to research online. For sensitive or source-closed work, explicitly prohibit outside facts. Never include credentials, API keys, cookies, authentication material, or unrelated private files.
-
-### WEB_RESPONSE_SCHEMA.json template
-
-ChatGPT receives this schema as an instruction. The companion independently enforces the core identity, status, artifact, delivery, size, and hash contract.
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "required": ["request_id", "status", "artifacts_manifest", "delivery"],
-  "properties": {
-    "request_id": {"type": "string"},
-    "status": {"enum": ["COMPLETE", "PARTIAL", "BLOCKED"]},
-    "results": {"type": "object"},
-    "artifacts_manifest": {"type": "array"},
-    "limitations": {"type": "array"},
-    "delivery": {"type": "array", "items": {"type": "string"}}
-  }
-}
-```
-
-**The response schema is a hard contract. Pin every manifest field and tell ChatGPT to reproduce the field names verbatim.** The template above leaves `artifacts_manifest` as a bare array, which is a trap. ChatGPT will invent plausible but wrong keys for each entry (`name`, `type`, `contains`) instead of the ones the deterministic validator requires (`filename`, `status`, `media_type`, `size`, `sha256`). The result is `ARTIFACT_ENTRY_INVALID: filename null` and a false `INCOMPLETE` on work whose actual content is correct, which reads as the validator being broken when the real fault is a loose schema. Two mitigations, use both: (1) in `WEB_RESPONSE_SCHEMA.json`, fully specify the `artifacts_manifest` item with its `required` keys rather than typing it `"array"`; (2) in `WEB_REVIEW_REQUEST.json` and the prompt, instruct the model in one line to emit the response JSON using the schema's exact field names, verbatim, and to paraphrase nothing in the manifest. A model told only "follow the schema" paraphrases keys; a model told "reproduce these field names verbatim" does not.
-
-### Preparation-spec template
-
-Store this temporary spec anywhere safe. Operational scratch under `state\` is ignored by Git.
-
-```json
-{
-  "subject": "Short call subject",
-  "request_id": "unique-project-task-v1",
-  "expected_main_json": "unique_project_task_response.json",
-  "expected_artifacts": ["unique_project_task_outputs.zip"],
-  "prompt_text": "Read every attached file. Follow WEB_REVIEW_REQUEST.json and WEB_RESPONSE_SCHEMA.json. Return no conversational text: deliver only the downloadable main JSON file and any artifacts listed in it. If blocked or incomplete, still return the main JSON with status PARTIAL or BLOCKED.",
-  "input_files": [
-    {
-      "path": "C:\\absolute\\source\\WEB_REVIEW_REQUEST.json",
-      "filename": "WEB_REVIEW_REQUEST.json"
-    },
-    {
-      "path": "C:\\absolute\\source\\WEB_RESPONSE_SCHEMA.json",
-      "filename": "WEB_RESPONSE_SCHEMA.json"
-    },
-    {
-      "path": "C:\\absolute\\source\\relevant_context.md",
-      "filename": "relevant_context.md"
-    }
-  ]
-}
-```
-
-`created_at` is optional. Normally omit it so the companion uses the current local time. `expected_artifacts` is optional but strongly recommended: it reserves those filenames and turns a silently dropped artifact into a reported defect. The companion verifies the two governing JSON files, checks `request_id`, rejects any deliverable filename already claimed by a prepared or active call, copies only the enumerated files, hashes the snapshots, and publishes the exchange atomically.
-
-Prepare and inspect:
-
-```sh
-./gptwebcall prepare --spec /absolute/path/prepare_spec.json
-./gptwebcall list
-./gptwebcall show --exchange YYYY-MM-DD_HHMMSS_short_subject
-```
-
-Before telling the operator to click Go, verify the manifest lists exactly the intended files, the subject and request ID are correct, and `expected_main_json` is unambiguous.
-
-## Normal extension workflow
-
-1. The operator opens the GPT Web Call side panel and clicks the prepared call's row, which opens that call's controls beneath it.
-2. The operator clicks **Go**. The companion verifies the frozen request files; monitoring starts; ChatGPT opens.
-3. The extension waits. The operator clicks ChatGPT's real **Attach files** control.
-4. The extension assigns exactly the manifest-approved request files to that chooser and detaches its debugger immediately.
-5. The operator reviews the filenames and clicks ChatGPT's native **Send**.
-6. ChatGPT returns one downloadable file: the outputs archive, with the main JSON and every other created file inside it.
-7. The operator manually downloads every output. Files may be downloaded in any order. Artifacts downloaded before the main JSON remain pending until the main JSON identifies them.
-8. The operator clicks **Done and validate**. Monitoring stops first; the companion validates and writes `validation\VALIDATION_REPORT.json`.
-9. The operating session reads the main response, validation report, and artifacts; it then performs semantic acceptance.
-
-The extension accepts Chrome duplicate suffixes such as `name (1).json` only when they bind unambiguously to an expected filename. Existing different response bytes are never overwritten.
-
-### The panel is two lists of calls
-
-Calls that need something sit on top — prepared and running — and finished calls
-below them, newest first. Clicking any row opens that call's own controls in
-place; one row is open at a time. What a row offers follows from its state:
-
-| state | what its row offers |
-|---|---|
-| `PREPARED` | the request id, the archive going up, the one coming back, a destination, and **Go** |
-| `ACTIVE` | the stage, elapsed time, the file checklist, **Done and validate**, **Stop** |
-| `ACTIVE`, binding lost | a destination and **Resume attachment**, plus **Stop** |
-| `COMPLETE` / `INCOMPLETE` | the response paths, defects when there are any, **Open correction round**, **Prepare a copy** |
-| `STOPPED` | the response paths and **Prepare a copy** |
-
-A row shows the **delivery** state only: whether every promised file arrived and
-matched the hash declared for it. What the responder said about its own work,
-and whether the declared hashes were usable, are in
-`validation\VALIDATION_REPORT.json` — read them there. The panel reports on the
-pipe, not on the answer.
-
-### Which conversation the call lands in
-
-Each call's row carries its own destination control, above its **Go**.
-**In a new tab** opens a fresh ChatGPT tab with a new conversation; this is the
-default, and the bounded call the rest of this document describes.
-**In the conversation I am in** binds whichever ChatGPT tab is focused when Go
-is clicked, so a call can be delivered into a thread that has deliberately
-accumulated context.
-
-They are different products, not a convenience. A call sent into an existing thread is answered by a model that has already been argued with in that thread: intended in a conductor call, a contaminant in a bounded one. Decide which you are preparing before you prepare it, because a conductor request written to lean on prior context arrives incoherent in a fresh conversation, and a bounded request answered inside a long thread is no longer unsteered.
-
-The destination is per call, not one setting shared by the panel. That mattered
-the moment two calls could run at once: a single control meant the second call
-inherited an answer given about the first. The last choice made is offered as
-the next call's default, which is a suggestion and not a decision already taken.
-
-**Resume** asks again rather than assuming. A browser restart destroys the
-binding between a call and its conversation, and nothing records it per call —
-the handoff that named the bound tab dies with the session. Resuming a conductor
-call into a fresh tab would silently discard the thread the mode existed to
-keep, so the button stays disabled until a destination is chosen for that call.
-
-### Sending the same request again
-
-A finished call cannot be sent again: `go` takes a `PREPARED` exchange alone.
-**Prepare a copy** on a finished row builds a new exchange from the same inputs
-and leaves the original exactly as it is — its response is the only copy of work
-the model already did. The copy appears in the top list as a prepared call, and
-sending it is a separate, deliberate **Go**.
-
-This is the only way back for a `STOPPED` call, which nothing else accepts:
-`go`, `done` and `repair` all refuse it.
-
-The refusals are deliberate and none of them fall back. Sending into the current conversation is refused when there is no focused tab, when the focused tab cannot be proven to be `https://chatgpt.com/`, and when that conversation is already running another call. An unreadable tab address means the extension's `chatgpt.com` permission was declined; reload the extension and accept the prompt. Nothing about this reaches the companion, which takes `tab_id` as an opaque integer.
-
-## Main response contract
-
-The required main JSON has this minimum shape:
-
-```json
-{
-  "request_id": "unique-project-task-v1",
-  "status": "COMPLETE",
-  "results": {},
-  "artifacts_manifest": [
-    {
-      "filename": "requested_artifact.md",
-      "status": "CREATED",
-      "media_type": "text/markdown",
-      "size": 123,
-      "sha256": "64-lowercase-or-uppercase-hex-characters"
-    }
-  ],
-  "limitations": [],
-  "delivery": [
-    "unique_project_task_response.json",
-    "requested_artifact.md"
-  ]
-}
-```
-
-Rules:
-
-- `request_id` must equal the exchange request ID.
-- `status` is `COMPLETE`, `PARTIAL`, or `BLOCKED`.
-- Every additional file is listed once in `artifacts_manifest`, whether it came down as its own download or travels inside the outputs archive. Listing the archive's members is encouraged: a member's declared SHA-256 is the only way a truncated or corrupted file inside the archive can be detected.
-- Artifact status is `CREATED`, `MISSING`, or `NOT_CREATED`.
-- Every `CREATED` artifact supplies exact filename, media type, byte size, and SHA-256.
-- `delivery` names only what came down as a download: the outputs archive. It does not repeat the archive's members, which were never separately downloadable, and naming the main JSON as well is accepted rather than required.
-- A `PARTIAL` or `BLOCKED` response delivered intact is `status: COMPLETE` with `response_status` recording what the responder said. See "Delivery integrity is not work completeness".
-- ChatGPT should emit no conversational acknowledgment, summary, markdown block, or pasted JSON outside the downloadable files.
-
-## Semantic acceptance
-
-`COMPLETE` in `VALIDATION_REPORT.json` proves only that the expected main JSON is structurally valid, bound to the request, reports `COMPLETE`, and that every created artifact is present with matching bytes. It does not prove the reasoning is correct.
-
-After deterministic validation, Codex or Claude Code must:
-
-1. Check that every requested question, work item, and acceptance criterion was actually answered.
-2. Verify important claims against the declared authority and independently verify consequential web claims.
-3. Identify unsupported inference, invented evidence, contradiction, or scope drift.
-4. Decide whether to accept, partially use, reject, or request correction.
-5. Integrate only warranted conclusions into the external project.
-
-ChatGPT Web output remains advisory. The operator retains final authority.
-
-## Correction rounds
-
-When validation reports `INCOMPLETE`, the cause is usually mechanical rather than intellectual: a declared SHA-256 that does not match the delivered bytes, an artifact named in the manifest but never downloaded, a `PARTIAL` status, or a `delivery` list that omits a created file. Reasoning again from scratch is the wrong response to that.
-
-A correction round diagnoses the exact defects and sends them back into the same conversation.
-
-1. `./gptwebcall defects --exchange <exchange_id>` lists every defect as a structured record with `kind`, `target`, `expected`, and `observed`. It reads only; it changes nothing.
-2. The **Open correction round** button, inside that call's own row in the side panel, calls `call.repair`. The companion writes `repair\ROUND_N_PROMPT.txt` and `repair\ROUND_N_DEFECTS.json` inside the exchange, records the round in the manifest, and re-arms monitoring with a fresh download baseline.
-3. The extension types the correction prompt into the composer of the bound tab and stops. It never presses Send. The operator reviews the prompt and sends it. If the composer cannot be found, the prompt is still written to disk and shown in the side panel with a copy control.
-4. ChatGPT returns corrected files into the same conversation. Files that already validated are left alone.
-5. Click **Done and validate** again.
-
-Rules:
-
-- A correction round is refused when the response has no defects.
-- Corrected files never overwrite earlier bytes silently. A superseded file is moved to `response\superseded\round<N>\` before the replacement is stored, so every round remains auditable.
-- Rounds accumulate. `repair_round` and a `repairs` array in the exchange manifest record what was wrong and when.
-- The request ID never changes across correction rounds. Correcting a delivery is not the same as reasoning again; when the *reasoning* is wrong, create a new correction call with a new request ID as described under failure and correction rules.
-
-## Command reference
-
-```sh
-./gptwebcall prepare --spec /path/spec.json
-./gptwebcall list
-./gptwebcall show --exchange <exchange_id>
-./gptwebcall active
-./gptwebcall done
-./gptwebcall done --exchange <exchange_id>
-./gptwebcall stop
-./gptwebcall stop --exchange <exchange_id>
-./gptwebcall delete --exchange <exchange_id>
-./gptwebcall delete --exchange <exchange_id> --force
-./gptwebcall clone --exchange <exchange_id>
-./gptwebcall validate --exchange <exchange_id>
-./gptwebcall defects --exchange <exchange_id>
-./gptwebcall repair --exchange <exchange_id> --tab <tab_id>
-./gptwebcall wait --exchange <exchange_id>
-./gptwebcall wait --exchange <exchange_id> --after-current --timeout-seconds 900
-```
-
-On Windows every line is `.\gptwebcall.cmd` instead of `./gptwebcall`.
-
-- `prepare`: snapshot and hash one new call package.
-- `list`: list calls currently in `PREPARED` state.
-- `show`: read one exchange manifest.
-- `active`: show the active-call record, or the list of them when several are running, or `null`.
-- `done`: stop and deterministically validate one active call without the extension.
-- `stop`: abandon one active call and record `STOPPED` without deleting evidence.
-- `delete`: remove one exchange from disk entirely and free the deliverable names it claimed.
-- `clone`: prepare the same request again as a new exchange, leaving the finished one untouched. Refused unless the source is `COMPLETE`, `INCOMPLETE` or `STOPPED` — a call that can still receive files has not finished, and it still holds its deliverable names. This is the only route out of `STOPPED`, which `go`, `done` and `repair` each refuse.
-- `validate`: validate response files placed by hand into a non-active exchange. This is a manual-fallback step, not a pre-send check; it refuses a prepared call that nothing has answered. To inspect a call before sending it, use `show`.
-- `defects`: report every validation defect in a delivered response without changing anything.
-- `repair`: open a correction round, write its prompt and defect record, and re-arm monitoring.
-- `wait`: block until one exchange produces a lifecycle event, then print it and exit.
-
-### Waiting for a call to end
-
-An agent session cannot be interrupted from outside. It can, however, start a
-process and be re-entered when that process exits — so `wait` makes the exit the
-notification. It polls the filesystem, holds no lock while it sleeps, and lives
-outside Chrome entirely, because the native host dies with the port Chrome opened
-for it.
-
-It recognises every way a call actually ends, not only the happy one:
-
-| event | exit | meaning |
-|---|---|---|
-| `COMPLETE` / `INCOMPLETE` | 0 | terminal state reached and validated |
-| `STOPPED` | 0 | abandoned; nothing was validated |
-| `DELETED` | 0 | the exchange was removed after the wait began |
-| `REPAIR_OPENED` | 0 | **not an ending** — a correction round is running |
-| `DOWNLOAD_FILING_FAILED` | 0 | still running; a completed download could not be filed |
-| `STILL_WAITING` | 1 | the caller's own timeout expired. Not abandonment |
-| — | 2 | bad arguments, or an exchange that did not exist at first lookup |
-| — | 3 | the exchange is present but unreadable. Wake and inspect; never treat as success |
-
-Branch on the reported `event`, not on the exit code alone. `--after-current`
-makes the present state the baseline, which is how a session waits out a
-correction round on a call that is already `INCOMPLETE`.
-
-A wake-up is a fact about state and nothing more. It is not permission to act on
-a response: read the validation report and do semantic acceptance exactly as if a
-human had said the call was done. An abandoned call writes nothing at all, so no
-event will ever arrive for one — that is why the timeout reports `STILL_WAITING`
-rather than inventing an ending.
-
-### Deleting a superseded call
-
-`stop` is for a call that was started and must be abandoned. It requires an
-active call and leaves the directory in place. Neither fits a call that was
-prepared and then found wrong before it was ever sent — a payload missing a file
-that its own primary question depends on, a request that asks the wrong thing, a
-spec corrected after packaging. Such a call cannot be stopped, because it never
-became active.
-
-Left alone it is not inert. It stays `PREPARED` indefinitely, so it keeps
-claiming its `expected_main_json` and artifact names, and the corrected call that
-wants those names is refused (see **Filenames are the routing key**). It also
-stays in the panel, one click away from sending the payload you already know is
-wrong. `delete` removes the directory and releases the names.
-
-Two refusals guard it, and only the second can be overridden:
-
-- **A running call is never deleted.** The download monitor would keep writing
-  into a directory that no longer exists. Stop it first, then delete it.
-- **A received response is never discarded silently.** Once a file has landed in
-  `response\`, that file is the only copy of work the model already did. Move it
-  elsewhere, or pass `--force` to discard it deliberately. The result reports
-  what was discarded under `discarded_responses`.
-
-Prefer renaming deliverables over deleting when the superseded call still holds a
-response worth keeping: a call whose state is not `PREPARED` or `ACTIVE` has
-already released its names, so it blocks nothing.
-
-## Restart and interruption recovery
-
-If Chrome or the extension restarts while a call is active:
-
-- Before the operator sent the request: reopen the side panel, click the call's row, choose a destination, and click **Resume attachment**. The extension resolves that destination the same way Go does, rebinds the same exchange, and waits for the operator's real Attach click. It never sends automatically. The destination has to be chosen because the restart destroyed the record of which conversation the call was in.
-- After the operator sent the request: do not resend it blindly. Download the outputs, place them manually if monitoring was lost, then use `done` for the active exchange.
-- To abandon the interrupted call: use the side-panel Stop action or `./gptwebcall stop`.
-
-Always run `./gptwebcall active` before recovery, and recover one exchange at a time by naming it with `--exchange`. Never start a second call against a tab that is already bound.
-
-## Manual fallback
-
-The permanent manual fallback keeps the workflow usable with the extension disabled.
-
-For a call that is still `PREPARED`:
-
-1. Use `list` and `show` to identify it.
-2. Upload the one file named in `attach_files`: the inputs archive, from that exchange's `request\` directory. The other files there are the provenance record whose hashes are verified; they travel inside the archive, not beside it.
-3. Type one line with it — open the archive, read `000_READ_ME_FIRST.md` first, follow it exactly — because an archive sent with no message gets a model asking what to do with it. The panel does this automatically; by hand it is yours to type.
-4. The operator sends through ChatGPT and downloads the main JSON/artifacts.
-5. Copy the returned files into the exchange's `response\` directory using the exact expected names. Do not overwrite different bytes.
-6. Run:
-
-```sh
-./gptwebcall validate --exchange <exchange_id>
-```
-
-For a call already `ACTIVE`, place the returned files in its response directory and run:
-
-```sh
-./gptwebcall done
-```
-
-See `docs/MANUAL_FALLBACK.md` for the concise operator checklist.
-
-## Failure and correction rules
-
-- Missing main JSON, missing artifact, invalid hash/size, wrong request ID, `PARTIAL`, or `BLOCKED` produces `INCOMPLETE`; never describe it as successful.
-- Unrelated downloads remain where the browser saved them.
-- If only transport was incomplete, recover the missing exact files and rerun `validate` on the incomplete exchange.
-- If the delivery itself is malformed, run a correction round rather than a new call. Correction rounds fix mechanical delivery defects inside the same conversation and keep the same request ID.
-- If ChatGPT must reason again, create a new correction call with a new request ID. Include the original request, returned work, identified defect, and exact correction required. Preserve the original exchange unchanged.
-- Do not silently edit returned evidence to make validation pass.
-- Never execute returned scripts, binaries, archives, macros, or documents with active content merely because validation passed.
-
-## Compaction and handoff
-
-Conversation history is not operational state. Before compaction or handing work to another session:
-
-1. Ensure the current exchange files and reports are preserved under `calls\`.
-2. Record project-specific decisions and accepted conclusions in that project's own ledger or artifacts.
-3. Tell the next session to read this protocol.
-
-The next session then runs `active` and `list`, reads only the relevant exchange manifest/report and external project ledger, and continues. It does not need the previous conversation to operate the system safely.
-
-## Installation and health
-
-The system is installed for the browser using an origin-pinned native-host manifest. If the side panel reports that the companion is unavailable, reload the unpacked extension first. Reinstall only when the extension ID or local installation changes:
-
-```sh
-python3 scripts/install.py --extension-id <32-character-extension-ID>   # Linux
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -ExtensionId <32-character-extension-ID>   # Windows
-```
-
-Uninstallation removes only the registration (the registry entry on Windows, the manifest under the browser's NativeMessagingHosts directory on Linux) and the generated native-host manifest. On Linux, delete `~/.config/chromium/NativeMessagingHosts/com.sina.gptwebcall.json` (and any other browser copy) plus `native-host/com.sina.gptwebcall.json`.
-
-It never deletes calls, responses, or validation evidence.
+Exactly one file goes up: the frozen `_inputs.zip`. Exactly one file comes back:
+the attempt's generated outputs ZIP containing the generated main JSON at its
+root and agreed artifact paths. `expected_artifacts` is exactly one `.zip`.
+
+The response has request_id, job_revision, status, results, criteria_report,
+artifacts_manifest, limitations and delivery. Use the generated schema verbatim.
+`delivery` contains only the outputs ZIP. Artifact entries cover each agreed
+artifact once, with filename, CREATED/MISSING/NOT_CREATED, media_type, byte size
+and SHA-256. An absent artifact has size 0 and null hash. Never put the main JSON
+or containing ZIP in that manifest: their self-hashes would be circular.
+
+Write artifacts first, then measure their actual bytes. The bundled trusted
+`package_response.py --payload payload.json --artifacts outputs --status COMPLETE`
+helper creates the envelope and archive without external dependencies. Use
+PARTIAL/BLOCKED honestly for unavailable work, with limitations and criterion
+reports. The local companion never executes returned code automatically.
+
+Paths are canonical portable relative paths, preserving directories. New jobs
+inspect nested ZIPs as artifact bytes; they do not search recursively by basename.
+Legacy exchanges retain bounded recursive inspection with unambiguous aliases.
+
+## Validation and acceptance
+
+One validator supplies Done, validate, defects and repair. It checks all ZIP
+member CRCs, archive budgets, normalized-path uniqueness, frozen task schema,
+identity, artifact sizes/hashes and output inventory. All schema references must
+be document-local; no network retrieval. Draft 2020-12 and standard formats are
+validated with the pinned jsonschema dependency.
+
+Limits: 512 MiB compressed archive/per member; 1 GiB total expanded bytes;
+4096 members; 30 seconds streaming inspection; 2 MiB main JSON. Legacy nested
+inspection additionally limits each nested archive to 64 MiB and depth to three.
+Violations retain bytes and report defects. No malformed-metadata fallback is
+silently promoted to a verified delivery.
+
+Delivery COMPLETE means mechanical checks passed. response_status and
+work_complete describe the responder's completion claim. A valid PARTIAL or
+BLOCKED can be delivered correctly. semantic_acceptance remains NOT_REVIEWED
+until the terminal/operator reviews the actual result against the job. Passing
+hashes and schemas does not prove the answer is correct.
+
+## Parallel calls and destinations
+
+Several calls may be active at once. Generated output names are the routing key;
+Chrome does not report an originating tab for every download. The destination is
+per call: choose ChatGPT/Claude and either **In a new tab** or **In the conversation
+I am in**. Existing-thread context can affect the answer; choose intentionally.
+
+Go verifies frozen inputs before activating. The extension never presses Send,
+automatically downloads, or reads ChatGPT's response page. Done and Stop name an
+exchange explicitly. Repeated Done retrieves that exchange's own report.
+
+Resume requires an explicit destination choice after lost browser state. A browser
+restart destroys tab identity; recovery must not guess or borrow another call's
+tab. Repair retains provider identity and a call-specific conversation binding.
+
+## Commands and recovery
+
+| Command | Purpose |
+| --- | --- |
+| brief --job | Check and display the settled job |
+| prepare --job | Generate the frozen package |
+| list / active / show --exchange | Inspect prepared/running calls |
+| done --exchange | Ingest expected downloads and validate |
+| stop --exchange | Stop monitoring without deleting evidence |
+| clone --exchange | Prepare another attempt from frozen evidence |
+| validate --exchange | Recheck an inactive exchange |
+| defects --exchange | Show the same validator's repair findings |
+| repair --exchange --tab | Open a mechanical correction |
+| wait --exchange | Wait for a lifecycle event |
+| delete --exchange | Explicit deletion; retain evidence unless requested |
+
+`prepare --spec` is an explicit legacy compatibility path, not the authoring path
+for new jobs. Legacy exchange identifiers and filenames remain readable.
+
+Wait events are COMPLETE, INCOMPLETE, STOPPED, DELETED, REPAIR_OPENED,
+DOWNLOAD_FILING_FAILED and STILL_WAITING. An event is not permission to send,
+repair or execute anything. Timeouts are not completion.
+
+If delivery is defective, read the defects before repair. Preserve valid artifact
+bytes, regenerate metadata/archive as needed, and retain rejected originals.
+Semantic dissatisfaction requires reviewing scope/evidence or a new job revision.
+The manual fallback remains available when the extension is unavailable; see
+`docs/MANUAL_FALLBACK.md`. No shared pending-download pool is used.

@@ -1,7 +1,0 @@
-{
-  "name": "webcall",
-  "displayName": "GPT Web Call",
-  "description": "Operate GPT Web Call: install and smoke-test it, prepare one bounded call, and run every other action.",
-  "version": "1.0.0",
-  "skills": "./skills"
-}

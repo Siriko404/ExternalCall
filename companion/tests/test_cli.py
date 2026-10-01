@@ -20,7 +20,7 @@ class CLITests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         sources = base / "sources"
         sources.mkdir()
         request = sources / "WEB_REVIEW_REQUEST.json"
@@ -312,7 +312,7 @@ class CLITests(unittest.TestCase):
         repository_root = Path(__file__).resolve().parents[2]
 
         completed = subprocess.run(
-            [str(repository_root / "gptwebcall.cmd"), "list"],
+            [str(repository_root / "externalcall.cmd"), "list"],
             cwd=repository_root,
             text=True,
             capture_output=True,

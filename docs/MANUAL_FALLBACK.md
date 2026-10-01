@@ -1,14 +1,20 @@
-# Manual fallback
+# Manual web exchange and recovery
 
-Use this when the extension is unavailable. `WEB_CALL_PROTOCOL.md` remains authoritative.
+Use the same generated job and archive when the extension is unavailable.
+Prepare with `./externalcall brief --job job.json`, show the brief, then
+`./externalcall prepare --job job.json`. Windows uses `externalcall.cmd`.
 
-1. From the canonical root, run `./gptwebcall active` and `./gptwebcall list` (`.\gptwebcall.cmd` on Windows).
-2. Select one exchange; inspect it with `./gptwebcall show --exchange <exchange_id>`.
-3. Upload the one file named in its `attach_files`, from `request/`: the inputs archive. The prompt is inside it as `000_READ_ME_FIRST.md`. Send it with one line of your own — open the archive, read `000_READ_ME_FIRST.md` first, follow it — because an archive sent bare gets a model asking what to do with it.
-4. The operator clicks the conversation's native Send and manually downloads the one expected outputs archive. Extract the main JSON out of it under its exact expected name; everything else stays inside.
-5. Place only those returned files in that exchange's `response/` directory under their expected names. Never overwrite different existing bytes.
-6. If the exchange was never active, run `./gptwebcall validate --exchange <exchange_id>`.
-7. If it is active, run `./gptwebcall done`.
-8. Read `validation/VALIDATION_REPORT.json`; then perform semantic review before using the output.
+Open the chosen ChatGPT/Claude conversation yourself. Attach the recorded input
+ZIP, paste the supplied launch instruction if needed, inspect and send. Download
+one expected outputs archive. Do not rename another call's ZIP to force routing.
 
-Use `./gptwebcall stop` only to abandon an active call. Unrelated downloads remain outside the response folder. A substantive repair requiring model reasoning becomes a new correction call; the original exchange stays unchanged.
+For an inactive prepared exchange:
+
+```sh
+./externalcall validate --exchange <id> --downloads-dir <downloads-directory>
+```
+
+For an active exchange, use `done --exchange <id> --downloads-dir <directory>`.
+Use `show` and `defects` to inspect the same validator's report. Main JSON is lifted
+from the ZIP without extracting or executing other members. Preserve original
+bytes, report unverified checks and review semantics separately.

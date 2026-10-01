@@ -20,7 +20,7 @@ class DeliverableNameTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         self.sources = base / "sources"
         self.sources.mkdir()
         self.now = datetime(2026, 7, 21, 9, 0, 0, tzinfo=timezone(timedelta(hours=-4)))

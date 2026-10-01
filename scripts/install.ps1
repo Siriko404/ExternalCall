@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Register the GPT Web Call native-messaging host for one already-loaded extension.
+Register the ExternalCall native-messaging host for one already-loaded extension.
 
 .DESCRIPTION
 The host manifest must name one exact extension ID in allowed_origins, with no
@@ -33,11 +33,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$hostPath = Join-Path $root 'bin\gptwebcall-host.exe'
-$templatePath = Join-Path $root 'native-host\com.sina.gptwebcall.template.json'
-$manifestPath = Join-Path $root 'native-host\com.sina.gptwebcall.json'
+$hostPath = Join-Path $root 'bin\externalcall-host.exe'
+$templatePath = Join-Path $root 'native-host\com.sina.externalcall.template.json'
+$manifestPath = Join-Path $root 'native-host\com.sina.externalcall.json'
 $extensionPath = Join-Path $root 'extension'
-$registryPath = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.sina.gptwebcall'
+$registryPath = 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.sina.externalcall'
 
 function Fail([string]$problem, [string]$remedy) {
     throw "$problem`n  Fix: $remedy"
@@ -140,7 +140,7 @@ Write-Output 'Verifying the installation.'
 
 $written = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $expectedOrigin = "chrome-extension://$ExtensionId/"
-if ($written.name -ne 'com.sina.gptwebcall') {
+if ($written.name -ne 'com.sina.externalcall') {
     Fail "The rendered manifest names the host '$($written.name)'." 'The template was modified; restore it.'
 }
 if (-not (Test-Path -LiteralPath $written.path -PathType Leaf)) {
@@ -174,8 +174,8 @@ if (Test-Path -LiteralPath $preferences -PathType Leaf) {
     }
     if ($chosen -and $chosen.TrimEnd('\') -ne $expectedDownloads.TrimEnd('\')) {
         Write-Warning "Chrome saves downloads to $chosen, but the companion reads $expectedDownloads."
-        Write-Output  "  Set GPTWEBCALL_DOWNLOADS_DIR to Chrome's directory, for this account:"
-        Write-Output  "    [Environment]::SetEnvironmentVariable('GPTWEBCALL_DOWNLOADS_DIR', '$chosen', 'User')"
+        Write-Output  "  Set EXTERNALCALL_DOWNLOADS_DIR to Chrome's directory, for this account:"
+        Write-Output  "    [Environment]::SetEnvironmentVariable('EXTERNALCALL_DOWNLOADS_DIR', '$chosen', 'User')"
         Write-Output  "  Then restart Chrome so the companion inherits it."
     } else {
         Write-Output "  Downloads:     $expectedDownloads"

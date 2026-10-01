@@ -24,7 +24,7 @@ UTF-16LE on Windows and UTF-8 on Linux.
 
 On Linux the profile data lives under ~/.config/<browser>/ instead of
 %LOCALAPPDATA%\\Google\\Chrome\\User Data. Every browser directory that
-exists is searched, overridable with GPTWEBCALL_BROWSER_DATA.
+exists is searched, overridable with EXTERNALCALL_BROWSER_DATA.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def derive_extension_id(directory: Path) -> str:
     absolute = str(path if path.is_absolute() else path.resolve())
     # Chrome hashes the path as UTF-16LE on Windows and UTF-8 on Linux.
     # Verified live on 2026-09-07: Chromium 151 on Arch Linux loaded
-    # /home/sina/Work/GptWebCall/extension with the id the UTF-8 hash gives,
+    # /home/sina/Work/ExternalCall/extension with the id the UTF-8 hash gives,
     # and only the install-time repin (setup.py comparing against Chrome's own
     # record) is what kept the earlier UTF-16LE assumption from pinning a dead
     # origin.
@@ -67,7 +67,7 @@ def derive_extension_id(directory: Path) -> str:
 def chrome_user_data() -> Path:
     if os.name == "nt":
         return Path(os.environ.get("LOCALAPPDATA", "")) / "Google" / "Chrome" / "User Data"
-    override = os.environ.get("GPTWEBCALL_BROWSER_DATA")
+    override = os.environ.get("EXTERNALCALL_BROWSER_DATA")
     if override:
         return Path(override)
     for directory in LINUX_USER_DATA_DIRS:
@@ -89,7 +89,7 @@ def user_data_dirs(explicit: Path | None = None) -> list[Path]:
     """
     if explicit is not None:
         return [explicit]
-    if os.name == "nt" or os.environ.get("GPTWEBCALL_BROWSER_DATA"):
+    if os.name == "nt" or os.environ.get("EXTERNALCALL_BROWSER_DATA"):
         return [chrome_user_data()]
     return [directory for directory in LINUX_USER_DATA_DIRS if directory.is_dir()]
 

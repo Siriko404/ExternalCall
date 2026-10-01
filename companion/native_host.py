@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, BinaryIO
 
 from companion.core import (
+    _exchange_dir,
+    _read_json_object,
     clone_call,
     inspect_call,
     list_ready_calls,
@@ -29,10 +31,12 @@ from companion.downloads import (
 )
 from companion.repair import open_repair_round
 from companion.watch import record_download_failure
+from companion.lock import state_lock
 
 
 MAX_MESSAGE_SIZE = 1024 * 1024
 ALLOWED_COMMANDS = {
+    "status.snapshot",
     "health",
     "calls.list_ready",
     "call.active",
@@ -109,6 +113,12 @@ def dispatch(root: Path, message: dict[str, Any]) -> dict[str, Any] | list[Any] 
     if command == "calls.active":
         _require_keys(payload, set())
         return load_active_calls(root)
+    if command == "status.snapshot":
+        _require_keys(payload, set())
+        with state_lock(root):
+            return {"root": str(root), "ready": list_ready_calls(root),
+                    "active": load_active_calls(root), "progress": call_progress(root),
+                    "recent": list_recent_calls(root)}
     if command == "calls.progress":
         _require_keys(payload, set())
         return call_progress(root)
@@ -139,6 +149,8 @@ def dispatch(root: Path, message: dict[str, Any]) -> dict[str, Any] | list[Any] 
     if command == "call.go":
         _require_keys(payload, {"exchange_id", "tab_id", "download_baseline"})
         exchange_id = _required_string(payload, "exchange_id")
+        paths = request_paths(root, exchange_id)
+        launch = launch_prompt(root, exchange_id)
         active = start_call(
             root,
             exchange_id,
@@ -147,11 +159,11 @@ def dispatch(root: Path, message: dict[str, Any]) -> dict[str, Any] | list[Any] 
         )
         return {
             "active": active,
-            "request_paths": request_paths(root, exchange_id),
+            "request_paths": paths,
             # An archive sent with no message gets a model asking what to do
             # with it. The panel types this line into the composer; the operator
             # still reviews it and clicks Send.
-            "launch_prompt": launch_prompt(root, exchange_id),
+            "launch_prompt": launch,
         }
     if command == "call.resume":
         _allow_keys(payload, {"tab_id", "download_baseline"}, {"exchange_id"})
@@ -193,11 +205,13 @@ def dispatch(root: Path, message: dict[str, Any]) -> dict[str, Any] | list[Any] 
             # to ingest from the downloads folder too. Without this the capture
             # fix would only ever run for someone typing the command by hand.
             return finish_call(root, exchange_id, default_downloads_dir())
-        last_result = root / "state" / "LAST_RESULT.json"
-        if not last_result.is_file():
-            raise RuntimeError("no call is active and no prior result exists")
-        value = json.loads(last_result.read_text(encoding="utf-8"))
-        return value["report"]
+        if exchange_id is None:
+            raise RuntimeError("name the finished exchange to retrieve its result")
+        report_path = _exchange_dir(root, exchange_id) / "validation" / "VALIDATION_REPORT.json"
+        report = _read_json_object(report_path, "validation report")
+        if report.get("exchange_id") != exchange_id:
+            raise ValueError("validation report belongs to another exchange")
+        return report
     if command == "call.repair":
         _require_keys(payload, {"exchange_id", "tab_id", "download_baseline"})
         return open_repair_round(

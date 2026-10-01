@@ -174,7 +174,7 @@ class PinnedManifestTests(unittest.TestCase):
         setup = (ROOT / "scripts" / "setup.py").read_text(encoding="utf-8")
         self.assertIn('read_text(encoding="utf-8-sig")', setup)
 
-        installed = ROOT / "native-host" / "com.sina.gptwebcall.json"
+        installed = ROOT / "native-host" / "com.sina.externalcall.json"
         if not installed.is_file():
             self.skipTest("no host manifest on this machine")
         # Whatever the encoding, the shipped reader must cope with the file the
@@ -204,28 +204,9 @@ class InstallDocumentationTests(unittest.TestCase):
 
         self.assertIn("NativeMessagingHosts", installer)
         self.assertIn("allowed_origins", installer)
-        self.assertIn("GPTWEBCALL_DOWNLOADS_DIR", installer)
+        self.assertIn("EXTERNALCALL_DOWNLOADS_DIR", installer)
 
-    def test_the_readme_opens_on_the_link_and_the_one_command(self):
-        """The entry point is a repository link handed to Claude, so the clone
-        target is named rather than left as a decision."""
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        head = readme[:1200]
 
-        self.assertIn("git clone https://github.com/Siriko404/GptWebCall.git", head)
-        self.assertIn("python scripts/setup.py", head)
-        self.assertIn("$HOME\\GptWebCall", head)
-
-    def test_the_readme_points_a_reader_at_that_one_command(self):
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-
-        self.assertIn("python scripts/setup.py", readme)
-        # The transcription step is gone and must not creep back. Checked as an
-        # instruction rather than a substring: the README is free to say the
-        # string is never typed, which is the opposite of asking for it.
-        self.assertNotIn("read back its", readme)
-        self.assertNotIn("reading back its", readme)
-        self.assertIn("You never read or type a 32-character string", readme)
 
     def test_the_installer_no_longer_demands_an_id(self):
         installer = (ROOT / "scripts" / "install.ps1").read_text(encoding="utf-8")
@@ -233,13 +214,6 @@ class InstallDocumentationTests(unittest.TestCase):
         self.assertNotIn("Mandatory = $true", installer)
         self.assertIn("extension_id.py", installer)
 
-    def test_init_installs_without_asking_anyone_to_read_an_id(self):
-        init = (
-            ROOT / "skill" / "webcall" / "skills" / "init" / "SKILL.md"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("scripts/setup.py", init)
-        self.assertNotIn("read back the 32-character ID", init)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
-"""Install GPT Web Call end to end. One command, run once, from the checkout.
+"""Install ExternalCall end to end. One command, run once, from the checkout.
 
     python scripts/setup.py
     python scripts/setup.py --dry-run     # report the plan, change nothing
     python scripts/setup.py --no-browser  # do not open Chrome or wait for it
 
 There are two halves and they used to be separate errands: the native-messaging
-host that lets Chrome talk to the companion, and the `webcall` skills that give
+host that lets Chrome talk to the companion, and the `externalcall` skills that give
 an agent session a way to drive it. Neither is useful without the other, and
 doing one and forgetting the other produces a system that looks installed and
 does nothing.
@@ -30,6 +30,7 @@ import os
 import shutil
 import subprocess
 import sys
+import venv
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,10 +48,9 @@ IS_LINUX = sys.platform.startswith("linux")
 GUIDE = """\
 How to use it, in full:
 
-  /webcall:prep   describe the task; it writes the request, freezes the files
+  /externalcall:prep   describe the task; it writes the request, freezes the files
                   and hands you an exchange to launch
-  /webcall:menu   everything else: status, health, finish, repair, stop, delete
-  /webcall:init   recheck this installation and run a live smoke test
+  /externalcall:manage status, results, recovery and correction
 
   In the side panel: Go -> click ChatGPT's own Attach files -> check what
   attached -> Send -> download the one archive -> Done and validate.
@@ -153,7 +153,7 @@ def pinned_origin_id() -> str | None:
     install. Chrome itself takes the BOM without complaint, which is why the
     file has carried one all along without anyone noticing.
     """
-    manifest = ROOT / "native-host" / "com.sina.gptwebcall.json"
+    manifest = ROOT / "native-host" / "com.sina.externalcall.json"
     if not manifest.is_file():
         return None
     import json
@@ -271,7 +271,7 @@ def main(argv: list[str]) -> int:
 
     if not IS_WINDOWS and not IS_LINUX:
         print(
-            "GPT Web Call installs on Windows and Linux: it registers a Chrome "
+            "ExternalCall installs on Windows and Linux: it registers a Chrome "
             "native-messaging host (under HKCU on Windows, in the browser's "
             "NativeMessagingHosts directory on Linux) and the extension asserts "
             "absolute attachment paths.",
@@ -288,6 +288,20 @@ def main(argv: list[str]) -> int:
         print(f"not a complete checkout: {ROOT}", file=sys.stderr)
         return 1
 
+    active_files = list((ROOT / "state" / "active").glob("*.json"))
+    if (ROOT / "state" / "ACTIVE_CALL.json").is_file():
+        active_files.append(ROOT / "state" / "ACTIVE_CALL.json")
+    if active_files and not dry_run:
+        print("Finish or stop active calls before changing this installation.", file=sys.stderr)
+        return 1
+    if not dry_run:
+        environment = ROOT / ".venv"
+        venv.EnvBuilder(with_pip=True).create(environment)
+        runtime_python = environment / ("Scripts/python.exe" if IS_WINDOWS else "bin/python")
+        run([str(runtime_python), "-m", "pip", "install", "-r", str(ROOT / "requirements.txt")],
+            "Python validator dependency")
+    else:
+        print("Would install the pinned Python validator from requirements.txt.")
     run(native_host_installer(dry_run), "Native messaging host")
 
     skill = [sys.executable, str(ROOT / "scripts" / "install_skill.py")]
@@ -309,11 +323,11 @@ def main(argv: list[str]) -> int:
         f"""
 === One step left ===
 
-Restart Claude Code. Slash commands register at startup, so /webcall:* appears
+Restart Claude Code. Slash commands register at startup, so /externalcall:* appears
 in the next session, not this one.
 
-Then run /webcall:init once. It rechecks everything above and finishes with a
-live smoke test it invents on the spot, so a green dot is not the last word.
+Use /externalcall:prep for a small smoke-test job and record the actual browser
+observations from skill/externalcall/references/SMOKE_TEST.md.
 
 {GUIDE}"""
     )

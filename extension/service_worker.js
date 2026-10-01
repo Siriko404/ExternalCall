@@ -8,9 +8,12 @@ import {
   handoffForTab,
 } from "./lib/downloads.js";
 import { chooseTargetTab, normalizeProvider, providerBaseUrl, providerLabel } from "./lib/target.js";
+import { createHandoffStore } from "./lib/handoffs.js";
+
+const handoffStore = createHandoffStore(chrome.storage.session);
 
 
-const NATIVE_HOST = "com.sina.gptwebcall";
+const NATIVE_HOST = "com.sina.externalcall";
 /* A newly created conversation renders its composer some time after the tab
  * exists, so the launch line is retried rather than attempted once. Twenty
  * attempts at 500ms is ten seconds, past which a page that has not produced a
@@ -41,10 +44,18 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
   if (method !== "Page.fileChooserOpened") {
     return;
   }
-  completeAttachment(source, params).catch(async (error) => {
-    await setHandoffStatus(source.tabId, "ERROR", error.message);
-    await safeDetach(source.tabId);
-  });
+  (async () => {
+    const handoff = handoffForTab(await readHandoffs(), source.tabId);
+    if (!handoff || !await handoffStore.current(handoff)) return;
+    try {
+      await completeAttachment(source, params, handoff);
+    } catch (error) {
+      if (!await handoffStore.current(handoff)) return;
+      const saved = await writeHandoff({ ...handoff, status: "ERROR", message: error.message, armed: false });
+      if (saved) await broadcastStatus(saved);
+      await safeDetach(source.tabId);
+    }
+  })().catch(console.error);
 });
 
 
@@ -82,40 +93,29 @@ async function handlePanelMessage(message) {
 
 
 async function readHandoffs() {
-  const stored = await chrome.storage.session.get("handoffs");
-  return stored.handoffs ?? {};
+  return handoffStore.read();
 }
 
 
-async function writeHandoff(handoff) {
-  const handoffs = await readHandoffs();
-  handoffs[handoff.exchangeId] = handoff;
-  await chrome.storage.session.set({ handoffs });
-  return handoff;
+async function writeHandoff(handoff, options) {
+  return handoffStore.write(handoff, options);
 }
 
 
 async function dropHandoff(exchangeId) {
-  const handoffs = await readHandoffs();
-  const removed = handoffs[exchangeId] ?? null;
-  delete handoffs[exchangeId];
-  await chrome.storage.session.set({ handoffs });
-  return removed;
+  return handoffStore.drop(exchangeId);
 }
 
 
 async function getStatus() {
-  const [health, ready, active, progress, recent, stored] = await Promise.all([
-    nativeCommand("health"),
-    nativeCommand("calls.list_ready"),
-    nativeCommand("calls.active"),
-    nativeCommand("calls.progress"),
-    nativeCommand("calls.recent"),
-    chrome.storage.session.get(["handoffs", "lastReport", "lastHandoff", "lastDownloadFailure"]),
+  const [snapshot, stored, handoffs] = await Promise.all([
+    nativeCommand("status.snapshot"),
+    chrome.storage.session.get(["lastReport", "lastHandoff", "lastDownloadFailure"]),
+    readHandoffs(),
   ]);
-  const handoffs = stored.handoffs ?? {};
+  const { ready, active, progress, recent } = snapshot;
   return {
-    root: health?.root ?? null,
+    root: snapshot?.root ?? null,
     // Which expected files have actually landed, per running call. The panel
     // holds Done back until they all have, because Done stops monitoring.
     progress,
@@ -207,9 +207,9 @@ async function beginGo(exchangeId, mode, provider) {
       launchInserted: null,
       pendingLaunchPrompt: mode === "current" ? null : result.launch_prompt ?? null,
     };
-    await writeHandoff(handoff);
+    const saved = await writeHandoff(handoff, { create: true });
     await armTab(tab.id);
-    return handoff;
+    return saved;
   } catch (error) {
     await dropHandoff(exchangeId);
     await safeDetach(tab.id);
@@ -283,8 +283,10 @@ async function resumeCall(exchangeId, mode, provider) {
   if (typeof exchangeId === "string" && exchangeId) {
     payload.exchange_id = exchangeId;
   }
+  let resumedId = null;
   try {
     const result = await nativeCommand("call.resume", payload);
+    resumedId = result.active.exchange_id;
     /* Same discipline as beginGo: the launch line waits for the attachment. */
     const handoff = {
       ...handoffFrom(
@@ -300,10 +302,11 @@ async function resumeCall(exchangeId, mode, provider) {
       launchInserted: null,
       pendingLaunchPrompt: mode === "current" ? null : result.launch_prompt ?? null,
     };
-    await writeHandoff(handoff);
+    const saved = await writeHandoff(handoff, { create: true });
     await armTab(tab.id);
-    return handoff;
+    return saved;
   } catch (error) {
+    if (resumedId) await dropHandoff(resumedId);
     await safeDetach(tab.id);
     throw error;
   }
@@ -343,9 +346,8 @@ async function armTab(tabId) {
 }
 
 
-async function completeAttachment(source, params) {
-  const handoffs = await readHandoffs();
-  const handoff = handoffForTab(handoffs, source.tabId);
+async function completeAttachment(source, params, handoff) {
+  if (!handoff || !await handoffStore.current(handoff)) return;
   let assignment;
   try {
     assignment = buildFileAssignment(handoff, source, params);
@@ -358,6 +360,7 @@ async function completeAttachment(source, params) {
     const nodeId = await findFileInputNode(source);
     assignment = buildFallbackAssignment(handoff, source, nodeId);
   }
+  if (!await handoffStore.current(handoff)) return;
   await chrome.debugger.sendCommand(source, assignment.method, assignment.params);
   await chrome.debugger.sendCommand(
     { tabId: source.tabId },
@@ -376,6 +379,7 @@ async function completeAttachment(source, params) {
     status: "ATTACHED",
     message: `${handoff.attachmentNames.length} files attached. Review them, then click Send.`,
   };
+  if (!await handoffStore.current(handoff)) return;
   if (typeof handoff.pendingLaunchPrompt === "string" && handoff.pendingLaunchPrompt.trim()) {
     const launch = await typeLaunchPrompt(source.tabId, handoff.pendingLaunchPrompt, "new", handoff.provider);
     const label = providerLabel(handoff.provider);
@@ -388,8 +392,8 @@ async function completeAttachment(source, params) {
         : launch.message,
     };
   }
-  await writeHandoff(updated);
-  await broadcastStatus(updated);
+  const saved = await writeHandoff(updated);
+  if (saved) await broadcastStatus(saved);
 }
 
 
@@ -421,10 +425,10 @@ async function findFileInputNode(source) {
 
 
 async function openRepairRound(exchangeId) {
-  const stored = await chrome.storage.session.get(["handoffs", "lastHandoff"]);
-  const handoffs = stored.handoffs ?? {};
+  const stored = await chrome.storage.session.get(["lastHandoff", "binding:" + exchangeId]);
+  const handoffs = await readHandoffs();
   const handoff = (exchangeId ? handoffs[exchangeId] : null)
-    ?? stored.lastHandoff
+    ?? (exchangeId ? stored["binding:" + exchangeId] : stored.lastHandoff)
     ?? null;
   const tabId = handoff?.tabId;
   const target = exchangeId ?? handoff?.exchangeId;
@@ -434,12 +438,40 @@ async function openRepairRound(exchangeId) {
   if (typeof target !== "string" || !target) {
     throw new Error("No exchange to repair");
   }
+  if (handoff.exchangeId !== target || !["gpt", "claude"].includes(handoff.provider)) {
+    throw new Error("No matching call/provider binding. Use Resume attachment first.");
+  }
+  const boundTab = await chrome.tabs.get(tabId);
+  if (!boundTab.url || new URL(boundTab.url).hostname !== new URL(providerBaseUrl(handoff.provider)).hostname) {
+    throw new Error("The bound tab is no longer on the selected provider. Use Resume first.");
+  }
   const existingDownloads = await chrome.downloads.search({});
   const result = await nativeCommand("call.repair", {
     exchange_id: target,
     tab_id: tabId,
     download_baseline: existingDownloads.map((item) => item.id),
   });
+  if (result.new_attempt) {
+    const next = {
+      ...handoffFrom(result, tabId, result.exchange_id, "Correction prepared. Click Attach files, review, then Send."),
+      provider: handoff.provider,
+      launchPrompt: result.prompt,
+      pendingLaunchPrompt: result.prompt,
+      launchInserted: null,
+      repairRound: result.round,
+    };
+    try {
+      const saved = await writeHandoff(next, { create: true });
+      await armTab(tabId);
+      await broadcastStatus(saved);
+      return saved;
+    } catch (error) {
+      await dropHandoff(result.exchange_id);
+      await safeDetach(tabId);
+      await nativeCommand("call.stop", { exchange_id: result.exchange_id }).catch(() => undefined);
+      throw error;
+    }
+  }
 
   let inserted = false;
   let insertError = "";
@@ -467,10 +499,10 @@ async function openRepairRound(exchangeId) {
       : `Correction round ${result.round} ready. Copy the prompt below into ${providerLabel(handoff?.provider)}, then click Send.`
         + (insertError ? ` (${insertError})` : ""),
   };
-  await writeHandoff(updated);
+  const saved = await writeHandoff(updated, { create: true });
   await chrome.storage.session.set({ lastReport: null });
-  await broadcastStatus(updated);
-  return updated;
+  await broadcastStatus(saved);
+  return saved;
 }
 
 
@@ -548,9 +580,10 @@ async function finishCall(exchangeId) {
   const report = await nativeCommand("call.done", payload);
   // Keep the tab binding so a correction round can reuse the same conversation.
   const lastHandoff = handoff
-    ? { tabId: handoff.tabId, exchangeId: handoff.exchangeId }
+    ? { tabId: handoff.tabId, exchangeId: handoff.exchangeId, provider: handoff.provider }
     : null;
   await chrome.storage.session.set({ lastReport: report, lastHandoff });
+  if (lastHandoff) await chrome.storage.session.set({ ["binding:" + target]: lastHandoff });
   await dropHandoff(target);
   return report;
 }
@@ -613,8 +646,8 @@ async function submitCompletedDownload(delta) {
     status: `DOWNLOAD_${result.status}`,
     message: downloadMessage(result),
   };
-  await writeHandoff(updated);
-  await broadcastStatus(updated);
+  const saved = await writeHandoff(updated);
+  if (saved) await broadcastStatus(saved);
 }
 
 
@@ -662,18 +695,6 @@ async function recordDownloadFailure(downloadId, error) {
     // The durable record is best-effort by nature: if the companion is the
     // broken piece, there is nowhere durable left to write.
   }
-}
-
-
-async function setHandoffStatus(tabId, status, message) {
-  const handoffs = await readHandoffs();
-  const handoff = handoffForTab(handoffs, tabId);
-  if (!handoff) {
-    return;
-  }
-  const updated = { ...handoff, status, message, armed: false };
-  await writeHandoff(updated);
-  await broadcastStatus(updated);
 }
 
 

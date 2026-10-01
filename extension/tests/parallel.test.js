@@ -92,6 +92,6 @@ test("the side panel drives Done and Stop per exchange", async () => {
   // exchange id, not how the call is wrapped.
   assert.match(panel, /"DONE",[\s\S]{0,40}exchangeId/);
   assert.match(panel, /"STOP",[\s\S]{0,40}exchangeId/);
-  assert.match(worker, /nativeCommand\("calls\.active"\)/);
+  assert.match(worker, /nativeCommand\("status\.snapshot"\)/);
   assert.match(worker, /exchange_id: exchangeId/);
 });

@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import tempfile
+import unicodedata
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +17,7 @@ from companion.lock import state_lock
 
 
 _TIMESTAMP = "%Y-%m-%d_%H%M%S"
+MAX_FILE_BYTES = 512 * 1024 * 1024
 # The prompt's name inside the archive. The bundle is written in casefolded name
 # order, so the leading 000 puts it first in the archive and first in any listing
 # a model prints - inside an archive the name is the only thing telling a model
@@ -44,7 +46,7 @@ _RESERVED_NAMES = {
 }
 
 
-def prepare_call(root: Path, spec: dict[str, Any], now: datetime) -> dict[str, Any]:
+def prepare_call(root: Path, spec: dict[str, Any], now: datetime, *, _reexport=False) -> dict[str, Any]:
     root = Path(root).resolve()
     if now.tzinfo is None:
         raise ValueError("creation time must include a timezone")
@@ -66,6 +68,8 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime) -> dict[str, A
     if not isinstance(input_files, list) or not input_files:
         raise ValueError("input_files must be a non-empty list")
     expected_artifacts = _expected_artifact_names(spec)
+    if len(input_files) > 1005:
+        raise ValueError("input file-count budget exceeded")
 
     # One zip goes up, and nothing else. ChatGPT now refuses loose .md
     # attachments outright, so a prompt uploaded beside the archive strands the
@@ -78,7 +82,10 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime) -> dict[str, A
         )
 
     timestamp = now.strftime(_TIMESTAMP)
-    exchange_id = f"{timestamp}_{slug}"
+    token = spec.get("exchange_token")
+    if token is not None and not re.fullmatch(r"[0-9a-f]{12}", token):
+        raise ValueError("exchange_token must be 12 hexadecimal characters")
+    exchange_id = f"{timestamp}_{slug}" + (f"_{token}" if token else "")
     prompt_name = PROMPT_IN_BUNDLE_NAME
     bundle_name = f"{slug}_inputs.zip"
     calls_dir = root / "calls"
@@ -102,6 +109,7 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime) -> dict[str, A
             raise FileNotFoundError(f"input file does not exist: {source.name}") from error
         if not source.is_file():
             raise ValueError(f"input path is not a regular file: {source.name}")
+        _check_export_source(root, source, reexport=_reexport)
         packaged_name = _safe_name(
             str(item.get("filename", "")), "input filename"
         )
@@ -112,11 +120,19 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime) -> dict[str, A
             raise ValueError(f"duplicate input filename: {packaged_name}")
         seen.add(folded)
         prepared_inputs.append((source, packaged_name))
+    if sum(path.stat().st_size for path, _ in prepared_inputs) + len(prompt_text.encode("utf-8")) > MAX_FILE_BYTES:
+        raise ValueError("input package exceeds expanded-byte budget")
 
     required_names = {name.casefold() for _, name in prepared_inputs}
     for required in ("WEB_REVIEW_REQUEST.json", "WEB_RESPONSE_SCHEMA.json"):
         if required.casefold() not in required_names:
             raise ValueError(f"required input is missing: {required}")
+    # Canonical governing names are needed on case-sensitive filesystems.
+    prepared_inputs = [
+        (source, next((required for required in ("WEB_REVIEW_REQUEST.json", "WEB_RESPONSE_SCHEMA.json")
+                       if name.casefold() == required.casefold()), name))
+        for source, name in prepared_inputs
+    ]
 
     state_dir.mkdir(parents=True, exist_ok=True)
     calls_dir.mkdir(parents=True, exist_ok=True)
@@ -152,9 +168,11 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime) -> dict[str, A
         )
         if governing.get("request_id") != request_id:
             raise ValueError("WEB_REVIEW_REQUEST request_id does not match the call")
-        _read_json_object(
+        response_schema = _read_json_object(
             request_dir / "WEB_RESPONSE_SCHEMA.json", "WEB_RESPONSE_SCHEMA"
         )
+        from companion.schema import validator
+        validator(response_schema)
 
         manifest = {
             "schema_version": 1,
@@ -172,6 +190,11 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime) -> dict[str, A
             "request_files": request_files,
             "attach_files": [bundle_name],
             "response_dir": "response",
+            "contract_version": spec.get("contract_version", 1),
+            "job_revision": spec.get("job_revision"),
+            "expected_deliverables": spec.get("expected_deliverables", []),
+            "job_brief": spec.get("job_brief"),
+            "repair_round": spec.get("repair_round", 0),
         }
         _write_json_atomic(staging / "EXCHANGE_MANIFEST.json", manifest)
         # The check above runs before staging so an author learns about a taken
@@ -187,6 +210,7 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime) -> dict[str, A
             if destination.exists():
                 raise FileExistsError(f"exchange already exists: {exchange_id}")
             os.replace(staging, destination)
+            _sync_directory(calls_dir)
         return manifest
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
@@ -232,6 +256,10 @@ def clone_call(root: Path, exchange_id: str, now: datetime) -> dict[str, Any]:
         )
 
     request_dir = source_dir / "request"
+    if manifest.get("contract_version", 1) >= 2:
+        from companion.jobs import reprepare_job
+        return reprepare_job(root, source_dir, now)
+    request_paths(root, exchange_id)
     # The prompt travels inside the archive and the archive is rebuilt from the
     # inputs, so neither is an input to the new preparation.
     packed = {str(name).casefold() for name in manifest.get("attach_files", [])}
@@ -268,6 +296,7 @@ def clone_call(root: Path, exchange_id: str, now: datetime) -> dict[str, Any]:
             "cloned_from": exchange_id,
         },
         now,
+        _reexport=True,
     )
 
 
@@ -305,14 +334,18 @@ def _write_bundle(target: Path, names: list[str], source_dir: Path) -> None:
     could not be verified against its own manifest record. Fixing the timestamp
     and the order removes both sources of variation.
     """
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as bundle:
+    with zipfile.ZipFile(target, "x", zipfile.ZIP_DEFLATED) as bundle:
         for name in sorted(names, key=str.casefold):
             info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
-            bundle.writestr(info, (source_dir / name).read_bytes())
-    _write_bytes_durable(target, buffer.getvalue())
+            info.file_size = (source_dir / name).stat().st_size
+            with (source_dir / name).open("rb") as source, bundle.open(info, "w") as outgoing:
+                _copy_stream(source, outgoing)
+    if target.stat().st_size > MAX_FILE_BYTES:
+        raise ValueError("input ZIP exceeds compressed-byte budget")
+    with target.open("r+b") as stream:
+        os.fsync(stream.fileno())
 
 
 def claimed_deliverable_names(
@@ -570,6 +603,10 @@ def start_call(
         raise RuntimeError("call is not prepared")
 
     with state_lock(root):
+        manifest = _read_json_object(manifest_path, "EXCHANGE_MANIFEST")
+        if manifest.get("state") != "PREPARED":
+            raise RuntimeError("call is not prepared")
+        request_paths(root, exchange_id)
         _assert_can_run_alongside(root, exchange_id, tab_id, manifest)
         active = {
             "exchange_id": exchange_id,
@@ -651,6 +688,7 @@ def resume_call(
         active = load_active_call(root, exchange_id)
         if active is None:
             raise RuntimeError("no call is active")
+        request_paths(root, active["exchange_id"])
         for other in load_active_calls(root):
             if (
                 other.get("exchange_id") != active["exchange_id"]
@@ -870,6 +908,7 @@ def _subject_slug(subject: str) -> str:
 
 
 def _safe_name(name: str, label: str) -> str:
+    name = unicodedata.normalize("NFC", name)
     if (
         not name
         or name in {".", ".."}
@@ -878,12 +917,28 @@ def _safe_name(name: str, label: str) -> str:
         or "\\" in name
         or name.endswith((".", " "))
         or any(ord(character) < 32 for character in name)
+        or any(character in '<>:"|?*' for character in name)
+        or len(name.encode("utf-8")) > 255
     ):
         raise ValueError(f"{label} is unsafe: {name!r}")
     device = name.rstrip(". ").split(".", 1)[0].upper()
     if device in _RESERVED_NAMES:
         raise ValueError(f"{label} uses a reserved Windows name: {name}")
     return name
+
+
+def _check_export_source(root: Path, source: Path, *, reexport=False) -> None:
+    forbidden = [root / "state", root / ".git"]
+    if not reexport:
+        forbidden.append(root / "calls")
+    if any(source.is_relative_to(path.resolve()) for path in forbidden):
+        raise ValueError("export a sanitized approved source outside internal call/state/Git storage")
+    if any(part in {".ssh", ".gnupg", ".git", ".aws", "gcloud"} for part in source.parts):
+        raise ValueError("credential or Git storage cannot be packaged")
+    if (source.name == ".env" or source.name.startswith(".env.") or
+            source.name in {"id_rsa", "id_ed25519", "credentials", "application_default_credentials.json"} or
+            source.suffix.casefold() in {".pem", ".key"}):
+        raise ValueError("credential files cannot be packaged")
 
 
 def _exchange_dir(root: Path, exchange_id: str) -> Path:
@@ -926,6 +981,7 @@ def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
+        _sync_directory(path.parent)
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise
@@ -941,7 +997,7 @@ def _write_bytes_durable(path: Path, contents: bytes) -> None:
 def _copy_verified(source: Path, destination: Path) -> None:
     before_digest, before_size = _sha256(source)
     with source.open("rb") as incoming, destination.open("xb") as outgoing:
-        shutil.copyfileobj(incoming, outgoing)
+        _copy_stream(incoming, outgoing)
         outgoing.flush()
         os.fsync(outgoing.fileno())
     after_digest, after_size = _sha256(source)
@@ -963,9 +1019,29 @@ def _sha256(path: Path) -> tuple[str, int]:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
             size += len(chunk)
+            if size > MAX_FILE_BYTES:
+                raise ValueError(f"file exceeds byte budget: {path.name}")
     return digest.hexdigest(), size
+
+
+def _copy_stream(incoming, outgoing) -> None:
+    total = 0
+    while chunk := incoming.read(1024 * 1024):
+        total += len(chunk)
+        if total > MAX_FILE_BYTES:
+            raise ValueError("file exceeds copy byte budget")
+        outgoing.write(chunk)
 
 
 def _file_record(path: Path) -> dict[str, Any]:
     digest, size = _sha256(path)
     return {"filename": path.name, "size": size, "sha256": digest}
+
+
+def _sync_directory(path: Path) -> None:
+    if os.name != "nt":
+        descriptor = os.open(path, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)

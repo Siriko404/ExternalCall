@@ -41,7 +41,7 @@ class WatchFixture(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         sources = base / "sources"
         sources.mkdir()
         request = sources / "WEB_REVIEW_REQUEST.json"

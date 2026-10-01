@@ -27,7 +27,7 @@ class CloneTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         self.sources = base / "sources"
         self.sources.mkdir()
         request = self.write_source(

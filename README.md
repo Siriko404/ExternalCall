@@ -1,186 +1,60 @@
-# GPT Web Call
+# ExternalCall
 
-Hand one bounded task from a coding-agent session to ChatGPT Web, and get back files you can verify.
+Prepare a clear, bounded job for ChatGPT Web or Claude Web, hand over one frozen
+ZIP, and collect one returned ZIP. The terminal agent discusses the job with you;
+software generates names, prompt, schemas and package inventory.
 
-> **Installing this?** Give Claude Code this repository's link and say *"install this"*. It runs everything below.
->
-> ```sh
-> # Linux
-> git clone https://github.com/Siriko404/GptWebCall.git "$HOME/Work/GptWebCall"
-> cd "$HOME/Work/GptWebCall"
-> python3 scripts/setup.py
-> ```
->
-> ```powershell
-> # Windows
-> git clone https://github.com/Siriko404/GptWebCall.git "$HOME\GptWebCall"
-> cd "$HOME\GptWebCall"
-> python scripts/setup.py
-> ```
->
-> That builds and registers the native host, registers the `/webcall:*` skills, opens `chrome://extensions` with the extension folder already on your clipboard, waits for Chrome to load it, and checks that what Chrome loaded matches what it pinned. Then restart Claude Code and run `/webcall:init` once. Full detail in [Install](#install).
-
-A coding agent — Claude Code, Codex — is good at knowing your project and bad at being a second opinion on it. This is the bridge: the agent packages a task, you send it in your own browser, and the companion checks what comes back against what the response claimed it sent.
-
-**You stay in the loop by construction.** The extension has no way to send a message. It fills a file chooser *you* opened, then detaches. It never reads the response page.
-
-```
-agent prepares  →  you: Go → Attach → Send  →  you download  →  companion validates
-  (one .zip)         (your browser, your click)   (one .zip)     (hashes, sizes, names)
-```
-
-## What it does not do
-
-Listed first because it is the point.
-
-- Never presses Send. There is no code path that submits a ChatGPT message.
-- Never reads or scrapes the response page. Output arrives only as files you download.
-- Never touches cookies, credentials, session tokens, or ChatGPT's private endpoints.
-- Never uploads a directory. Only the files a preparation spec names, snapshotted and hashed first.
-- Never executes what comes back, however cleanly it validated.
-- Never moves a download it cannot bind to a specific call. Unrelated downloads stay where Chrome put them.
-
-## Requirements
-
-| | |
-|---|---|
-| Windows or Linux | on Windows the installer registers a Chrome native host under `HKCU`; on Linux it writes the host manifest into the browser's `NativeMessagingHosts` directory. The extension asserts absolute attachment paths on both |
-| Google Chrome / Chromium 125+ | `minimum_chrome_version` in the extension manifest |
-| Python 3.10+ on PATH | the companion. Standard library only — nothing to `pip install` |
-| Go 1.24+ | builds a 53-line launcher that starts the companion. Not a runtime dependency |
-| PowerShell (Windows), a clipboard tool (Linux) | install and uninstall on Windows use PowerShell; on Linux the clipboard step uses `wl-copy`, `xclip`, or `xsel` |
-
-`python scripts/setup.py` checks all of these and names the missing one before it writes anything.
-
-Node is needed only to run the extension's tests. The extension has no dependencies and no build step.
-
-macOS is not supported.
+The operator chooses the website and conversation, clicks Go, Attach, Send,
+download and Done. The extension never sends a message or reads the response page.
+API execution and production-line orchestration are outside this release.
 
 ## Install
 
-**Give Claude Code this repository's link and say "install this".** It reads this file and runs the whole thing. Your part is one folder-picker click and one restart of Claude Code. Everything else, including checking that the click worked, is done for you.
-
-**1. Clone and run one command.** Clone somewhere permanent — the generated host manifest stores absolute paths, so moving the repository afterwards means installing again.
+Windows and Linux; Python 3.10+, Go 1.24+ for the launcher build, Node for tests,
+and Chromium-family browser 125+. Runtime is local and uses no paid APIs.
 
 ```sh
-# Linux
-git clone https://github.com/Siriko404/GptWebCall.git "$HOME/Work/GptWebCall"
-cd "$HOME/Work/GptWebCall"
 python3 scripts/setup.py
 ```
 
-```powershell
-# Windows
-git clone https://github.com/Siriko404/GptWebCall.git "$HOME\GptWebCall"
-cd "$HOME\GptWebCall"
-python scripts/setup.py
-```
+Use `--dry-run` to inspect the installation plan or `--no-browser` for manual
+extension loading. Setup installs the pinned Python validator, registers the
+native host and Claude plugin, and guides unpacked-extension loading. Restart
+Claude Code after registration. Other skill hosts need their own explicit
+invocation configuration; Claude's invocation flag is not a portable guarantee.
 
-It checks every prerequisite before touching anything and names the missing one; builds the Go launcher; works out the extension's ID; registers the native-messaging host — under `HKCU` on Windows, into the browser's `NativeMessagingHosts` directory on Linux — and re-reads what it wrote; registers the `webcall` skills with Claude Code. `--dry-run` prints the plan and changes nothing.
+## Use
 
-**2. It hands you the one click nothing can automate.** Chrome removed `--load-extension` from stable and a profile's preferences are signed against being written by hand, so the folder must be chosen in the picker. The installer makes that as small as it goes: it opens `chrome://extensions`, puts the extension's path on your clipboard, and waits.
+- `/externalcall:prep`: clarify purpose, scope and acceptance; show a short brief;
+  prepare a frozen package from one job definition.
+- `/externalcall:manage`: status, results, resume, stop, correction and recovery.
 
-> Developer mode → **Load unpacked** → paste the path → choose the folder.
+A precise instruction needs no repeated interview or ceremonial approval. Missing
+material decisions must be settled. Every package gets a short job brief.
 
-Then it carries on by itself: it watches Chrome's own profile data until the extension appears, reads back the ID Chrome gave it, and compares that against the ID the native host was pinned to — repinning without asking if they differ. You never read or type a 32-character string.
+The side panel chooses ChatGPT/Claude and new/current conversation per call.
+It attaches only when you click the site's Attach control. Review before Send.
+After downloading the expected outputs ZIP, click Done. Integrity, schema,
+responder completion and semantic acceptance are distinct facts.
 
-**3. Restart Claude Code.** Slash commands register at startup, so `/webcall:*` appears in the next session, not the one that installed it.
+See [contract](WEB_CALL_PROTOCOL.md), [manual recovery](docs/MANUAL_FALLBACK.md)
+and [example job](examples/repository_audit.job.json). The legacy `gptwebcall`
+launchers and `prepare --spec` remain compatibility entry points for old exchanges.
 
-**4. Run `/webcall:init` once.** It rechecks all of the above, runs the three test suites, and finishes with a live smoke test it invents on the spot rather than replaying a fixture — so a green dot is not the last word. It refuses to report success on a failing suite, a failed installer postflight, an extension ID Chrome disagrees with, or a failed smoke test.
+## Upgrade
 
-Rerunning `setup.py` is safe at any point: it re-checks, re-registers, and undoes nothing.
+Stop or finish active calls before changing the native-host installation. Keep the
+old call/state folders as evidence. The new host is `com.sina.externalcall` and
+plugin is `externalcall@externalcall-local`; setup disables the old plugin entry.
+Historical requests and responses are not renamed. The GitHub repository URL
+remains unchanged until a separate repository rename is requested.
 
-**To update later, run `/webcall:update`.** It fast-forwards this checkout to the newest published release — or to `main` while there are no releases — re-registers the host and skills, and then names the two steps nothing can do for you: reloading the extension in `chrome://extensions`, and restarting Claude Code so the skills re-register. It refuses outright while a call is running, because the code it replaces is the code watching that call's downloads.
-
-If `/webcall:` is still missing after the restart, type these two lines and restart again:
-
-```text
-/plugin marketplace add <path-to-this-repo>\skill\webcall
-/plugin install webcall@webcall-local
-```
-
-## Use it
-
-Five commands, and one loop in the browser.
-
-| | |
-|---|---|
-| `/webcall:prep` | prepare one call: unbiased request, explicit file list, unique routing names, pre-send check |
-| `/webcall:menu` | everything else — status, health, finish, recover, repair, stop, delete, clone, manual fallback, watch, local responder |
-| `/webcall:init` | recheck the installation and smoke-test it |
-| `/webcall:update` | move to the latest published version, then say what only you can finish |
-| `/webcall:prodline` | run a whole production line: a Coordinator in a ChatGPT thread commissions bounded worker calls, the terminal packages, sends, and assembles them until final QA passes |
-
-Then you drive the browser half: **Go** → click ChatGPT's own **Attach files** → the launch line is typed automatically once your attachment lands → review → **Send** → download the one archive → **Done and validate**. No skill does any of that for you, by design.
-
-One `.zip` goes up, carrying the prompt as `000_READ_ME_FIRST.md`. One `.zip` comes back, carrying the response JSON and every created file. ChatGPT refuses loose `.md` uploads, and one file cannot arrive out of order with itself.
-
-Several calls can run at once, each bound to its own tab, as long as no two expect the same filename — attribution is by filename, because Chrome does not tell an extension which tab produced a download.
-
-[`WEB_CALL_PROTOCOL.md`](WEB_CALL_PROTOCOL.md) is the complete reference behind those commands — every rule, every command, every recovery path. It is not the operating surface: the skills are, and they cite it where it is needed. Read it to check a skill, or when operating by hand with the extension disabled.
-
-### Everything lands on disk
-
-```
-calls/2026-08-08_141310_shipinfra/
-  EXCHANGE_MANIFEST.json     identity, state, expected filenames, hashes
-  request/                   the frozen snapshot that was uploaded
-  response/                  what came back
-  validation/VALIDATION_REPORT.json
-```
-
-The filesystem is the database. No server, no SQLite, nothing to migrate. An exchange survives your agent losing its context, and the next session reads the manifest rather than the conversation.
-
-## How the attachment works
-
-The extension attaches Chrome's debugger to the tab it opened and enables file-chooser interception ([`Page.setInterceptFileChooserDialog`](https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-setInterceptFileChooserDialog)). When *you* click ChatGPT's attach control, Chrome emits the event instead of showing a picker; the extension assigns exactly the approved paths ([`DOM.setFileInputFiles`](https://chromedevtools.github.io/devtools-protocol/tot/DOM/#method-setFileInputFiles)) and detaches immediately.
-
-That is why the tab shows Chrome's "being debugged" banner until your files are attached, and why nothing happens until you click.
-
-The companion runs as a [native-messaging host](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging): a small Go launcher registered with Chrome that starts `python -m companion.native_host`. File bytes never cross that channel — only commands, names, and results.
-
-## Reading a validation report
-
-`status: COMPLETE` means the **delivery** was intact: every promised file arrived and hashes to what the response said. It says nothing about whether the reasoning is right — that judgement is yours and your agent's.
-
-Three fields, three different facts:
-
-| field | answers |
-|---|---|
-| `status` | did every promised file arrive intact |
-| `response_status` | did the responder say it finished — `COMPLETE`, `PARTIAL`, `BLOCKED` |
-| `manifest_verified` | were the responder's declared hashes usable at all |
-
-A `PARTIAL` response delivered intact is `status: COMPLETE`, `response_status: PARTIAL`. Read it — the files are perfect and the responder has told you where its gaps are.
-
-When `manifest_verified` is `false`, the responder's own manifest was malformed, so the files were checked structurally rather than against declared hashes. The bytes are present and sound; the binding is weaker. Weigh it accordingly.
-
-## Without the extension
-
-The manual path is permanent, not a fallback that rots. Upload the one archive a call names in `attach_files`, drop the returned files into its `response/` directory, and run `validate --exchange <id>`. See [`docs/MANUAL_FALLBACK.md`](docs/MANUAL_FALLBACK.md).
-
-## Known limits
-
-- Windows and Linux only; no macOS.
-- The companion looks for downloads in `~/Downloads` (`%USERPROFILE%\Downloads` on Windows). The installer checks this against the browser's own setting and tells you if they differ; set `GPTWEBCALL_DOWNLOADS_DIR` to fix it, or pass `--downloads-dir` when validating.
-- `tests/e2e/` still encodes an older request contract and is not yet a release gate. The unit suites are current.
-
-## Uninstall
+## Verify
 
 ```sh
-# Linux: remove the manifest the installer wrote into each browser's
-# NativeMessagingHosts directory, plus the generated one in the checkout.
-rm ~/.config/chromium/NativeMessagingHosts/com.sina.gptwebcall.json
-rm native-host/com.sina.gptwebcall.json
+python3 tests/e2e/run_all.py
 ```
 
-```powershell
-# Windows
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall.ps1
-```
-
-Removes the registration (the registry entry on Windows, the browser manifest on Linux) and the generated host manifest, and nothing else. Your calls, responses, and validation evidence stay. Remove the extension separately in `chrome://extensions`.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+The runner requires Python, Go and Node/npm and fails visibly if a required tool
+is missing. CI runs the automated matrix. Live website UAT is documented in
+`tests/e2e/UAT_CHECKLIST.md`; automated tests do not establish that UAT passed.

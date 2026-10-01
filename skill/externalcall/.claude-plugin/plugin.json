@@ -1,0 +1,7 @@
+{
+  "name": "externalcall",
+  "displayName": "ExternalCall",
+  "description": "Clarify, compile and manage bounded operator-controlled web exchanges.",
+  "version": "2.0.0",
+  "skills": "./skills"
+}

@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import tempfile
 import zipfile
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from companion.core import (
     _active_path_for,
+    _copy_stream,
     _exchange_dir,
     _read_json_object,
     _safe_name,
@@ -21,7 +24,7 @@ from companion.core import (
     load_active_call,
     load_active_calls,
 )
-from companion.lock import state_lock
+from companion.lock import exchange_lock, state_lock
 
 
 def handle_completed_download(root: Path, download: dict[str, Any]) -> dict[str, Any]:
@@ -40,9 +43,7 @@ def handle_completed_download(root: Path, download: dict[str, Any]) -> dict[str,
     filename = download.get("filename")
     if not isinstance(filename, str) or not filename:
         raise ValueError("completed download filename is required")
-    source = Path(filename).resolve(strict=True)
-    if not source.is_file():
-        raise ValueError(f"completed download is not a regular file: {source.name}")
+    source = Path(filename)
 
     with state_lock(root):
         every = load_active_calls(root)
@@ -56,6 +57,9 @@ def handle_completed_download(root: Path, download: dict[str, Any]) -> dict[str,
             for record in watching
         ):
             return {"status": "DUPLICATE", "download_id": download_id}
+        source = source.resolve(strict=True)
+        if not source.is_file():
+            raise ValueError(f"completed download is not a regular file: {source.name}")
         candidates = [
             record
             for record in watching
@@ -113,10 +117,10 @@ def default_downloads_dir() -> Path:
     """Where Chrome writes downloads before they are ingested.
 
     Shared by every entry point that finishes a call, so the side panel and the
-    CLI agree. GPTWEBCALL_DOWNLOADS_DIR overrides it, which is also what lets a
+    CLI agree. EXTERNALCALL_DOWNLOADS_DIR overrides it, which is also what lets a
     test point the ingest at a temporary folder instead of the real one.
     """
-    chosen = os.environ.get("GPTWEBCALL_DOWNLOADS_DIR")
+    chosen = os.environ.get("EXTERNALCALL_DOWNLOADS_DIR") or os.environ.get("GPTWEBCALL_DOWNLOADS_DIR")
     return Path(chosen) if chosen else Path.home() / "Downloads"
 
 
@@ -158,14 +162,17 @@ def ingest_from_downloads(
             "not_found": expected,
         }
 
-    floor = _download_floor(manifest.get("created_at"))
+    repairs = manifest.get("repairs", [])
+    repaired_at = repairs[-1].get("opened_at") if repairs else None
+    floor = _download_floor(repaired_at or manifest.get("created_at"))
+    supersede_round = _supersede_round(manifest) if manifest.get("contract_version", 1) == 1 else None
     for name in expected:
         destination = exchange / "response" / name
         candidate = _newest_download_match(downloads_dir, name, floor)
         if candidate is None:
             (already if destination.is_file() else not_found).append(name)
             continue
-        outcome = _safe_copy(candidate, destination)
+        outcome = _safe_copy(candidate, destination, supersede_round)
         if outcome == "COPIED":
             ingested.append(name)
         elif outcome == "IDENTICAL":
@@ -177,18 +184,20 @@ def ingest_from_downloads(
     # archive. Nothing will ever be found for its name in the Downloads folder,
     # so lift it out of the archive that was.
     expected_main = expected[0]
-    if expected_main in not_found:
+    if expected_main in not_found or (supersede_round is not None and ingested):
         archive = _delivered_archive(exchange, manifest)
         if archive is not None:
             try:
-                _extract_main_from_archive(archive, expected_main, exchange, None)
+                _extract_main_from_archive(archive, expected_main, exchange, supersede_round)
             except FileExistsError:
-                not_found.remove(expected_main)
+                if expected_main in not_found:
+                    not_found.remove(expected_main)
                 conflicts.append(expected_main)
             except (OSError, ValueError, zipfile.BadZipFile):
                 pass
             else:
-                not_found.remove(expected_main)
+                if expected_main in not_found:
+                    not_found.remove(expected_main)
                 ingested.append(expected_main)
     return {
         "status": "OK",
@@ -244,7 +253,7 @@ def _newest_download_match(
     return best
 
 
-def _safe_copy(source: Path, destination: Path) -> str:
+def _safe_copy(source: Path, destination: Path, supersede_round: int | None = None) -> str:
     """Copy a download into the response dir, leaving the original in Downloads.
 
     Mirrors _safe_move's guard: an identical file is a no-op, and different bytes
@@ -252,13 +261,17 @@ def _safe_copy(source: Path, destination: Path) -> str:
     so a re-validate remains possible and Downloads stays the record of truth.
     """
     source = source.resolve(strict=True)
+    if source == destination.resolve():
+        return "IDENTICAL"
     destination.parent.mkdir(parents=True, exist_ok=True)
     source_digest, source_size = _sha256(source)
     if destination.exists():
         destination_digest, destination_size = _sha256(destination)
         if source_digest == destination_digest and source_size == destination_size:
             return "IDENTICAL"
-        return "CONFLICT"
+        if supersede_round is None:
+            return "CONFLICT"
+        _archive_superseded(destination, supersede_round)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=".incoming-", suffix=".tmp", dir=destination.parent
     )
@@ -266,7 +279,7 @@ def _safe_copy(source: Path, destination: Path) -> str:
     temporary = Path(temporary_name)
     try:
         with source.open("rb") as incoming, temporary.open("wb") as outgoing:
-            shutil.copyfileobj(incoming, outgoing)
+            _copy_stream(incoming, outgoing)
             outgoing.flush()
             os.fsync(outgoing.fileno())
         copied_digest, copied_size = _sha256(temporary)
@@ -279,87 +292,64 @@ def _safe_copy(source: Path, destination: Path) -> str:
     return "COPIED"
 
 
+# A nested packaging archive is still "inside the outputs archive": responders
+# group replacement files in an inner zip (e.g. wc15_visual_repo.zip inside
+# wc15_outputs.zip). Depth and byte caps keep a hostile archive from turning
+# the validator into a decompression bomb.
 def archive_member_index(response_dir: Path) -> dict[str, tuple[str, int]]:
-    """Every member of every delivered archive, by filename, with digest and size.
-
-    Under "two files up, two files down" a returned file other than the main JSON
-    lives inside the outputs archive, and responders declare those members in
-    `artifacts_manifest` with a SHA-256 each. A member is not a file in
-    `response\\`, so looking only on disk reported every declared member missing.
-
-    Members are indexed by base name because the manifest names plain files. The
-    first archive to claim a name keeps it; a name in two archives is ambiguous
-    and the delivery contract already forbids more than one archive.
-    """
-    index: dict[str, tuple[str, int]] = {}
-    for archive_path in sorted(Path(response_dir).glob("*.zip")):
-        try:
-            with zipfile.ZipFile(archive_path) as archive:
-                for entry in archive.infolist():
-                    if entry.is_dir():
-                        continue
-                    digest = hashlib.sha256()
-                    with archive.open(entry) as member:
-                        while chunk := member.read(1024 * 1024):
-                            digest.update(chunk)
-                    index.setdefault(
-                        Path(entry.filename).name.casefold(),
-                        (digest.hexdigest(), entry.file_size),
-                    )
-        except (OSError, zipfile.BadZipFile):
-            continue
-    return index
+    from companion.archives import member_index
+    return member_index(response_dir)
 
 
-def _structurally_sound(path: Path) -> bool:
-    """A cheap integrity check for a delivered artifact when its declared hash is
-    unusable: an archive must open and pass its own CRCs, JSON must parse, and any
-    other file must be non-empty. It cannot catch a truncated member inside an
-    archive, so the mandatory human read remains the real backstop."""
-    suffix = path.suffix.casefold()
-    try:
-        if suffix == ".zip":
-            if not zipfile.is_zipfile(path):
-                return False
-            with zipfile.ZipFile(path) as archive:
-                return archive.testzip() is None
-        if suffix == ".json":
-            with path.open("r", encoding="utf-8") as handle:
-                json.load(handle)
-            return True
-        return path.stat().st_size > 0
-    except (OSError, ValueError, zipfile.BadZipFile):
-        return False
-
-
-def finish_call(
-    root: Path,
-    exchange_id: str | None = None,
-    downloads_dir: Path | None = None,
-) -> dict[str, Any]:
+def finish_call(root: Path, exchange_id: str | None = None, downloads_dir: Path | None = None) -> dict[str, Any]:
     root = Path(root).resolve()
-    with state_lock(root):
-        active = load_active_call(root, exchange_id)
-        if active is None:
-            raise RuntimeError("no call is active")
-
-        active["monitoring"] = False
-        _save_active(root, active)
-        exchange = Path(active["exchange_path"]).resolve()
-        manifest_path = exchange / "EXCHANGE_MANIFEST.json"
-        manifest = _read_json_object(manifest_path, "EXCHANGE_MANIFEST")
+    initial = load_active_call(root, exchange_id)
+    if initial is None:
+        if exchange_id is not None:
+            exchange = _exchange_dir(root, exchange_id)
+            report_path = exchange / "validation" / "VALIDATION_REPORT.json"
+            if report_path.is_file():
+                report = _read_json_object(report_path, "validation report")
+                if report.get("exchange_id") == exchange_id:
+                    return report
+        raise RuntimeError("no call is active")
+    exchange_id = initial["exchange_id"]
+    exchange = _exchange_dir(root, exchange_id)
+    with exchange_lock(exchange):
+        with state_lock(root):
+            active = load_active_call(root, exchange_id)
+            manifest_path = exchange / "EXCHANGE_MANIFEST.json"
+            manifest = _read_json_object(manifest_path, "EXCHANGE_MANIFEST")
+            report_path = exchange / "validation" / "VALIDATION_REPORT.json"
+            # Recover a crash after committing completion but before clearing active.
+            if manifest.get("state") in {"COMPLETE", "INCOMPLETE"} and report_path.is_file():
+                report = _read_json_object(report_path, "validation report")
+                if report.get("exchange_id") != exchange_id:
+                    raise ValueError("validation report belongs to another exchange")
+                _active_path_for(root, exchange_id).unlink(missing_ok=True)
+                return report
+            if active is None or manifest.get("state") != "ACTIVE":
+                raise RuntimeError("call is no longer active")
+            operation = uuid.uuid4().hex
+            active["monitoring"] = False
+            active["operation_id"] = operation
+            _save_active(root, active)
+            binding = (active.get("started_at"), active.get("tab_id"), active.get("repair_round"))
         if downloads_dir is not None:
-            ingest_from_downloads(root, active["exchange_id"], downloads_dir)
-
+            ingest_from_downloads(root, exchange_id, downloads_dir)
         report = validate_response(exchange)
-        _write_json_atomic(exchange / "validation" / "VALIDATION_REPORT.json", report)
-        manifest["state"] = report["status"]
-        _write_json_atomic(manifest_path, manifest)
-        _write_json_atomic(
-            root / "state" / "LAST_RESULT.json",
-            {"exchange_id": manifest["exchange_id"], "report": report},
-        )
-        _active_path_for(root, active["exchange_id"]).unlink(missing_ok=True)
+        with state_lock(root):
+            current = load_active_call(root, exchange_id)
+            manifest = _read_json_object(manifest_path, "EXCHANGE_MANIFEST")
+            if (current is None or current.get("operation_id") != operation or current.get("monitoring") or
+                    (current.get("started_at"), current.get("tab_id"), current.get("repair_round")) != binding or
+                    manifest.get("state") != "ACTIVE"):
+                raise RuntimeError("call changed while validating; response evidence retained")
+            _write_json_atomic(report_path, report)
+            manifest["state"] = report["status"]
+            _write_json_atomic(manifest_path, manifest)
+            _write_json_atomic(root / "state" / "LAST_RESULT.json", {"exchange_id": exchange_id, "report": report})
+            _active_path_for(root, exchange_id).unlink(missing_ok=True)
     return report
 
 
@@ -381,7 +371,6 @@ def _accept_outputs_archive(
     archive_name = _expected_archive(record)
     expected_main = _expected_main(record)
     supersede_round = _supersede_round(record)
-    record.setdefault("observed_download_ids", []).append(download_id)
     destination = exchange / "response" / archive_name
     try:
         _safe_move(source, destination, supersede_round)
@@ -392,6 +381,7 @@ def _accept_outputs_archive(
         _save_active(root, record)
         return {"status": "INVALID", "error": str(error)}
     _record_collected(record, archive_name)
+    record.setdefault("observed_download_ids", []).append(download_id)
 
     try:
         _extract_main_from_archive(destination, expected_main, exchange, supersede_round)
@@ -404,7 +394,7 @@ def _accept_outputs_archive(
     except FileExistsError as error:
         _save_active(root, record)
         return {"status": "CONFLICT", "error": str(error)}
-    except (OSError, ValueError, zipfile.BadZipFile) as error:
+    except (OSError, ValueError, zipfile.BadZipFile, RuntimeError, NotImplementedError) as error:
         _save_active(root, record)
         return {
             "status": "INVALID",
@@ -438,15 +428,21 @@ def _extract_main_from_archive(
     is still accepted; one that omits it has not delivered the response.
     """
     with zipfile.ZipFile(archive) as bundle:
+        from companion.archives import MAX_MAIN_BYTES, safe_path
         wanted = expected_main.casefold()
-        member = next(
-            (name for name in bundle.namelist() if name.casefold() == wanted), None
-        )
-        if member is None:
+        candidates = [entry for entry in bundle.infolist()
+                      if safe_path(entry.filename.rstrip("/") if entry.is_dir() else entry.filename).casefold() == wanted]
+        if len(candidates) != 1:
             raise ValueError(
-                f"{archive.name} does not contain the main response {expected_main}"
+                f"{archive.name} must contain exactly one main response {expected_main}"
             )
-        payload = bundle.read(member)
+        member = candidates[0]
+        if member.file_size > MAX_MAIN_BYTES:
+            raise ValueError("main response exceeds byte budget")
+        with bundle.open(member) as stream:
+            payload = stream.read(MAX_MAIN_BYTES + 1)
+        if len(payload) > MAX_MAIN_BYTES:
+            raise ValueError("main response exceeds byte budget")
 
     destination = exchange / "response" / expected_main
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -512,240 +508,36 @@ def _expected_main(record: dict[str, Any]) -> str:
 
 
 def validate_response(exchange_dir: Path) -> dict[str, Any]:
-    exchange = Path(exchange_dir).resolve()
-    manifest = _read_json_object(
-        exchange / "EXCHANGE_MANIFEST.json", "EXCHANGE_MANIFEST"
-    )
-    expected_main = _safe_name(
-        str(manifest["expected_main_json"]), "expected main JSON filename"
-    )
-    main_path = exchange / "response" / expected_main
-    missing: list[str] = []
-    invalid: list[str] = []
-    checked: list[str] = []
-
-    if not main_path.is_file():
-        missing.append(expected_main)
-        return _validation_report(manifest, expected_main, missing, invalid, checked)
-
-    try:
-        main = _parse_main_response(
-            main_path,
-            manifest["request_id"],
-            expected_main,
-            tuple(str(name) for name in manifest.get("expected_artifacts", [])),
-        )
-    except ValueError:
-        # The strict contract failed. That is one of two very different things and
-        # they used to be conflated: the file might be genuinely broken (not JSON,
-        # wrong request_id, unknown status), or its BYTES might be perfect and only
-        # the model's self-authored artifacts_manifest is malformed. A defense
-        # planning call routinely returns the latter, and marking a byte-perfect
-        # delivery "invalid, repair it" is the exact false alarm being fixed here.
-        #
-        # So fall back to the prepare-time contract, which the model cannot
-        # corrupt: identity must still hold, and every expected file must be
-        # present and structurally sound. If it is, the delivery is COMPLETE with
-        # manifest_verified False, telling the reader the metadata was unusable and
-        # semantic acceptance is doing the verifying that a good hash otherwise
-        # would have. A genuinely broken main JSON still fails.
-        return _validate_without_manifest(
-            exchange, manifest, main_path, expected_main, missing, invalid, checked
-        )
-
-    checked.append(expected_main)
-
-    # Two different facts, kept apart deliberately.
-    #
-    # Whether the DELIVERY is intact is this function's job: did every promised
-    # file arrive, does each one hash to what the response said it would. That is
-    # objective and it is what "invalid" must mean, because "invalid" tells the
-    # caller to stop reading and repair.
-    #
-    # Whether the WORK is finished is the responder's own self-report, and it is
-    # none of this function's business. PARTIAL means the assignment was answered
-    # with declared gaps, which prompts in this project explicitly ask for. It
-    # arrives as a perfectly formed pair of files.
-    #
-    # These were previously conflated: any status other than COMPLETE put the main
-    # JSON in invalid_files, the same bucket as a corrupt download. The exchange
-    # then went to INCOMPLETE and every downstream reader was told to repair a
-    # response that was flawless and worth reading. The contradiction sat inside
-    # this one module, since _parse_main_response accepts PARTIAL and BLOCKED as
-    # valid statuses and this function then called the file invalid for carrying
-    # one. Prompts that ask for honesty were the ones that triggered it, so the
-    # system punished exactly the behaviour it requested.
-    response_status = str(main["status"])
-
-    # A declared artifact is either a file that came down beside the main JSON or
-    # a member of the archive that did. Both carry a declared hash and both are
-    # verified against it; only the lookup differs. Treating a member as an
-    # undelivered download reported a byte-exact archive as dozens of missing
-    # files, and dropped the response into the unverified fallback, so the
-    # per-member hashes the responder supplied were never spent.
-    members: dict[str, tuple[str, int]] | None = None
-    for artifact in main["artifacts_manifest"]:
-        if artifact["status"] != "CREATED":
-            continue
-        name = artifact["filename"]
-        path = exchange / "response" / name
-        if path.is_file():
-            found = _sha256(path)
-        else:
-            if members is None:
-                members = archive_member_index(exchange / "response")
-            found = members.get(name.casefold())
-        if found is None:
-            missing.append(name)
-            continue
-        digest, size = found
-        if digest != artifact["sha256"] or size != artifact["size"]:
-            invalid.append(name)
-            continue
-        checked.append(name)
-
-    # An artifact the call was prepared to expect must arrive even when the main
-    # JSON forgets to declare it, otherwise a silently dropped deliverable
-    # validates as complete.
-    #
-    # Forgetting is not the same as declaring. A response that names the artifact
-    # and marks it MISSING or NOT_CREATED has told us plainly that it does not
-    # exist, which is a report rather than a silent drop, and calling it missing
-    # again would punish the same honesty this function stopped punishing above.
-    declared_absent = {
-        str(artifact["filename"]).casefold()
-        for artifact in main["artifacts_manifest"]
-        if artifact["status"] in {"MISSING", "NOT_CREATED"}
-    }
-    for declared in manifest.get("expected_artifacts", []):
-        name = _safe_name(str(declared), "expected artifact filename")
-        if (exchange / "response" / name).is_file():
-            continue
-        if name.casefold() in declared_absent:
-            continue
-        missing.append(name)
-    return _validation_report(
-        manifest, expected_main, missing, invalid, checked, response_status,
-        manifest_verified=True,
-    )
+    from companion.validation import validate_response as validate
+    return validate(exchange_dir)
 
 
-def _validate_without_manifest(
-    exchange: Path,
-    manifest: dict[str, Any],
-    main_path: Path,
-    expected_main: str,
-    missing: list[str],
-    invalid: list[str],
-    checked: list[str],
-) -> dict[str, Any]:
-    """Validate a delivery whose model-authored manifest is unusable, by trusting
-    only the prepare-time contract and structural soundness of the bytes."""
-    try:
-        raw = _read_json_object(main_path, "main response")
-    except ValueError:
-        invalid.append(expected_main)
-        return _validation_report(manifest, expected_main, missing, invalid, checked)
-    if raw.get("request_id") != manifest["request_id"] or raw.get("status") not in {
-        "COMPLETE",
-        "PARTIAL",
-        "BLOCKED",
-    }:
-        invalid.append(expected_main)
-        return _validation_report(manifest, expected_main, missing, invalid, checked)
-
-    response_status = str(raw["status"])
-    if _structurally_sound(main_path):
-        checked.append(expected_main)
-    else:
-        invalid.append(expected_main)
-    for declared in manifest.get("expected_artifacts", []):
-        name = _safe_name(str(declared), "expected artifact filename")
-        path = exchange / "response" / name
-        if not path.is_file():
-            missing.append(name)
-        elif _structurally_sound(path):
-            checked.append(name)
-        else:
-            invalid.append(name)
-    return _validation_report(
-        manifest, expected_main, missing, invalid, checked, response_status,
-        manifest_verified=False,
-    )
-
-
-def finalize_exchange(
-    root: Path, exchange_id: str, downloads_dir: Path | None = None
-) -> dict[str, Any]:
+def finalize_exchange(root: Path, exchange_id: str, downloads_dir: Path | None = None) -> dict[str, Any]:
     root = Path(root).resolve()
-    if load_active_call(root, exchange_id) is not None:
-        raise RuntimeError("an active call must be finished with done or stop")
     exchange = _exchange_dir(root, exchange_id)
-    manifest_path = exchange / "EXCHANGE_MANIFEST.json"
-    manifest = _read_json_object(manifest_path, "EXCHANGE_MANIFEST")
-    if manifest.get("state") not in {"PREPARED", "INCOMPLETE", "COMPLETE"}:
-        raise RuntimeError(f"exchange cannot be validated from state {manifest.get('state')}")
-    if downloads_dir is not None:
-        ingest_from_downloads(root, exchange_id, downloads_dir)
-    # Validating a call nothing has answered is never what the operator meant, and
-    # it is destructive: validation would find no files, write INCOMPLETE, and
-    # INCOMPLETE releases the deliverable names and drops the call out of `list`.
-    # The call then looks gone and would not collect its downloads if sent. The
-    # check is made after ingesting, so a manual fallback whose files are still
-    # sitting in the downloads folder is not refused.
-    if manifest.get("state") == "PREPARED" and not any(
-        (exchange / "response").iterdir()
-    ):
-        raise RuntimeError(
-            f"nothing to validate; call {exchange_id} has not been answered. Use "
-            "`show` to inspect a prepared call: validating it would move it out of "
-            "PREPARED, and it could no longer receive downloads."
-        )
-    report = validate_response(exchange)
-
-    _write_json_atomic(exchange / "validation" / "VALIDATION_REPORT.json", report)
-    manifest["state"] = report["status"]
-    _write_json_atomic(manifest_path, manifest)
-    _write_json_atomic(
-        root / "state" / "LAST_RESULT.json",
-        {"exchange_id": exchange_id, "report": report},
-    )
-    return report
-
-
-def _validation_report(
-    manifest: dict[str, Any],
-    expected_main: str,
-    missing: list[str],
-    invalid: list[str],
-    checked: list[str],
-    response_status: str | None = None,
-    manifest_verified: bool = True,
-) -> dict[str, Any]:
-    # "status" is about the delivery: every promised file arrived and hashed
-    # correctly. "response_status" is the responder's own account of whether it
-    # finished the work. A PARTIAL response delivered intact is status COMPLETE
-    # and response_status PARTIAL, which is the honest description of both facts
-    # and lets a reader decide what to do rather than being told to repair
-    # something that is not broken.
-    #
-    # "manifest_verified" is a third, separate fact: whether the model's own
-    # artifacts_manifest was well-formed enough to hash-verify each file against.
-    # False means the bytes are present and structurally sound but the declared
-    # hashes were unusable, so semantic acceptance carries the integrity load.
-    return {
-        "schema_version": 1,
-        "exchange_id": manifest["exchange_id"],
-        "request_id": manifest["request_id"],
-        "status": "COMPLETE" if not missing and not invalid else "INCOMPLETE",
-        "response_status": response_status,
-        "work_complete": response_status == "COMPLETE",
-        "manifest_verified": manifest_verified,
-        "main_json": expected_main,
-        "missing_files": sorted(set(missing)),
-        "invalid_files": sorted(set(invalid)),
-        "checked_files": sorted(set(checked)),
-    }
+    with exchange_lock(exchange):
+        with state_lock(root):
+            if load_active_call(root, exchange_id) is not None:
+                raise RuntimeError("an active call must be finished with done or stop")
+            manifest_path = exchange / "EXCHANGE_MANIFEST.json"
+            manifest = _read_json_object(manifest_path, "EXCHANGE_MANIFEST")
+            before = manifest.get("state")
+            if before not in {"PREPARED", "INCOMPLETE", "COMPLETE"}:
+                raise RuntimeError(f"exchange cannot be validated from state {before}")
+        if downloads_dir is not None:
+            ingest_from_downloads(root, exchange_id, downloads_dir)
+        if before == "PREPARED" and not any((exchange / "response").iterdir()):
+            raise RuntimeError("nothing to validate; call has not been answered; use show")
+        report = validate_response(exchange)
+        with state_lock(root):
+            current = _read_json_object(manifest_path, "EXCHANGE_MANIFEST")
+            if load_active_call(root, exchange_id) is not None or current.get("state") != before:
+                raise RuntimeError("call changed while validating; response evidence retained")
+            _write_json_atomic(exchange / "validation" / "VALIDATION_REPORT.json", report)
+            current["state"] = report["status"]
+            _write_json_atomic(manifest_path, current)
+            _write_json_atomic(root / "state" / "LAST_RESULT.json", {"exchange_id": exchange_id, "report": report})
+        return report
 
 
 def _parse_main_response(
@@ -757,7 +549,7 @@ def _parse_main_response(
     main = _read_json_object(path, "main response")
     if main.get("request_id") != request_id:
         raise ValueError("main response request_id does not match the active call")
-    if main.get("status") not in {"COMPLETE", "PARTIAL", "BLOCKED"}:
+    if not isinstance(main.get("status"), str) or main.get("status") not in {"COMPLETE", "PARTIAL", "BLOCKED"}:
         raise ValueError("main response status is invalid")
     artifacts = main.get("artifacts_manifest")
     if not isinstance(artifacts, list):
@@ -774,20 +566,21 @@ def _parse_main_response(
     for artifact in artifacts:
         if not isinstance(artifact, dict):
             raise ValueError("artifact manifest entries must be objects")
-        name = _safe_name(str(artifact.get("filename", "")), "artifact filename")
+        from companion.archives import safe_path
+        name = safe_path(artifact.get("filename", ""))
         folded = name.casefold()
         if folded in seen or folded == expected_main.casefold():
             raise ValueError(f"artifact filename is duplicate or reserved: {name}")
         seen.add(folded)
         status = artifact.get("status")
-        if status not in {"CREATED", "MISSING", "NOT_CREATED"}:
+        if not isinstance(status, str) or status not in {"CREATED", "MISSING", "NOT_CREATED"}:
             raise ValueError(f"artifact status is invalid: {name}")
         artifact["filename"] = name
         if status == "CREATED":
             size = artifact.get("size")
             digest = artifact.get("sha256")
             media_type = artifact.get("media_type")
-            if not isinstance(size, int) or size < 0:
+            if not isinstance(size, int) or isinstance(size, bool) or size < 0:
                 raise ValueError(f"artifact size is invalid: {name}")
             if not isinstance(digest, str) or not re.fullmatch(
                 r"[0-9a-fA-F]{64}", digest
@@ -828,6 +621,8 @@ def _safe_move(
     source: Path, destination: Path, supersede_round: int | None = None
 ) -> None:
     source = source.resolve(strict=True)
+    if source == destination.resolve():
+        return
     destination.parent.mkdir(parents=True, exist_ok=True)
     source_digest, source_size = _sha256(source)
     if destination.exists():
@@ -848,7 +643,7 @@ def _safe_move(
     temporary = Path(temporary_name)
     try:
         with source.open("rb") as incoming, temporary.open("wb") as outgoing:
-            shutil.copyfileobj(incoming, outgoing)
+            _copy_stream(incoming, outgoing)
             outgoing.flush()
             os.fsync(outgoing.fileno())
         copied_digest, copied_size = _sha256(temporary)

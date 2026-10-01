@@ -1,14 +1,6 @@
-"""Correction rounds for exchanges whose delivered files failed validation.
-
-`collect_defects` diagnoses a response directory and `build_repair_prompt` turns
-that diagnosis into an instruction the user can send in the same ChatGPT
-conversation. `open_repair_round` records the round and re-arms monitoring so the
-corrected downloads land in the same exchange.
-
-The diagnosis here is deliberately separate from `downloads._parse_main_response`.
-That function is a strict gate that decides whether a file may be moved and stops
-at the first problem. This module reports every problem at once and never moves
-anything.
+"""Corrections use the shared validator. Version 2 creates a fresh attempt with
+fresh routing names and frozen job evidence; legacy calls retain correction
+rounds in the same exchange, preserving superseded downloads.
 """
 
 from __future__ import annotations
@@ -37,80 +29,8 @@ REPAIRABLE_STATES = {"ACTIVE", "INCOMPLETE", "COMPLETE"}
 
 
 def collect_defects(exchange_dir: Path) -> list[dict[str, Any]]:
-    """Return every reason the delivered response fails validation."""
-    exchange = Path(exchange_dir).resolve()
-    manifest = _read_json_object(
-        exchange / "EXCHANGE_MANIFEST.json", "EXCHANGE_MANIFEST"
-    )
-    expected_main = _safe_name(
-        str(manifest["expected_main_json"]), "expected main JSON filename"
-    )
-    request_id = str(manifest["request_id"])
-    response_dir = exchange / "response"
-    main_path = response_dir / expected_main
-    defects: list[dict[str, Any]] = []
-
-    if not main_path.is_file():
-        return [
-            _defect(
-                "MAIN_MISSING",
-                expected_main,
-                f"a downloadable file named {expected_main}",
-                "no such file was delivered",
-            )
-        ]
-
-    try:
-        raw = json.loads(main_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        return [
-            _defect(
-                "MAIN_NOT_JSON",
-                expected_main,
-                "a single valid UTF-8 JSON object",
-                f"the file could not be parsed: {error}",
-            )
-        ]
-    if not isinstance(raw, dict):
-        return [
-            _defect(
-                "MAIN_NOT_OBJECT",
-                expected_main,
-                "a JSON object at the top level",
-                f"the top level is {type(raw).__name__}",
-            )
-        ]
-
-    if raw.get("request_id") != request_id:
-        defects.append(
-            _defect(
-                "REQUEST_ID_MISMATCH",
-                expected_main,
-                f'request_id "{request_id}"',
-                f"request_id {json.dumps(raw.get('request_id'))}",
-            )
-        )
-
-    status = raw.get("status")
-    if status not in {"COMPLETE", "PARTIAL", "BLOCKED"}:
-        defects.append(
-            _defect(
-                "STATUS_INVALID",
-                expected_main,
-                "status COMPLETE, PARTIAL, or BLOCKED",
-                f"status {json.dumps(status)}",
-            )
-        )
-
-    expected_downloads = tuple(
-        str(name) for name in manifest.get("expected_artifacts", [])
-    )
-    defects.extend(_artifact_defects(raw, response_dir, expected_main))
-    defects.extend(
-        _delivery_defects(raw, expected_main, response_dir, expected_downloads)
-    )
-    defects.extend(_undeclared_expected_defects(raw, manifest, response_dir))
-    return defects
+    from companion.validation import validate_response
+    return validate_response(exchange_dir)["defects"]
 
 
 def build_repair_prompt(
@@ -154,21 +74,53 @@ def build_repair_prompt(
             "  status CREATED, media_type, exact size in bytes, and exact sha256.",
             "  A file inside the outputs archive belongs in this list too, with its",
             "  own hash.",
-            f"- delivery must list only what is downloadable: {expected_main} and the",
-            "  outputs archive. Do not repeat the archive's members there.",
+            f"- Put {expected_main} inside the expected outputs ZIP.",
+            "- delivery must list only the outputs ZIP. Do not list its members.",
             "- If a file genuinely cannot be produced, set its status to NOT_CREATED,",
             "  leave it out of delivery, set the top-level status to PARTIAL, and give",
             "  the reason in limitations.",
             "",
             "DELIVERY",
-            f"- Return no conversational text. Deliver only {expected_main} and the",
-            "  corrected artifacts as downloadable files.",
+            "- Preserve valid artifact bytes; regenerate the envelope and ZIP as needed.",
+            "- Never hash the main JSON inside itself or the outer ZIP inside its own main JSON.",
+            "- Return no conversational text. Deliver exactly one corrected outputs ZIP.",
         ]
     )
     return "\n".join(lines) + "\n"
 
 
-def open_repair_round(
+def open_repair_round(root, exchange_id, tab_id=None, download_baseline=None):
+    exchange = _exchange_dir(Path(root).resolve(), exchange_id)
+    manifest = _read_json_object(exchange / "EXCHANGE_MANIFEST.json", "EXCHANGE_MANIFEST")
+    if manifest.get("contract_version", 1) >= 2:
+        if not isinstance(tab_id, int) or isinstance(tab_id, bool) or tab_id < 0:
+            raise ValueError("tab_id must be a non-negative integer")
+        baseline = download_baseline or []
+        if not isinstance(baseline, list) or any(not isinstance(x, int) or isinstance(x, bool) or x < 0 for x in baseline):
+            raise ValueError("download_baseline must contain non-negative integers")
+        if load_active_call(root, exchange_id) is not None:
+            raise RuntimeError("finish the current attempt before preparing its correction")
+        defects = collect_defects(exchange)
+        if not defects:
+            raise RuntimeError("the delivered response has no validation defects")
+        from companion.jobs import reprepare_job
+        from companion.core import launch_prompt, request_paths, start_call
+        round_number = int(manifest.get("repair_round", 0)) + 1
+        prepared = reprepare_job(Path(root).resolve(), exchange, datetime.now(timezone.utc),
+                                 repair_context={"previous_exchange": exchange_id, "round": round_number, "defects": defects})
+        new_id = prepared["exchange_id"]
+        paths = request_paths(root, new_id)
+        active = start_call(root, new_id, tab_id, baseline)
+        return {"exchange_id": new_id, "round": round_number,
+                "new_attempt": True, "defects": defects, "active": active,
+                "request_paths": paths,
+                "prompt": launch_prompt(root, new_id), "prompt_path": None, "defects_path": None}
+    # All legacy ownership checks and writes share the same critical section.
+    with state_lock(root):
+        return _open_repair_round(root, exchange_id, tab_id, download_baseline)
+
+
+def _open_repair_round(
     root: Path,
     exchange_id: str,
     tab_id: int | None = None,
@@ -214,6 +166,15 @@ def open_repair_round(
     if not defects:
         raise RuntimeError("the delivered response has no validation defects")
 
+    resolved_tab = tab_id if tab_id is not None else active.get("tab_id") if active else None
+    if resolved_tab is None:
+        raise ValueError("tab_id is required when no call is active")
+    if not isinstance(resolved_tab, int) or isinstance(resolved_tab, bool) or resolved_tab < 0:
+        raise ValueError("tab_id must be a non-negative integer")
+    baseline = sorted(set(download_baseline or []))
+    if any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in baseline):
+        raise ValueError("download_baseline must contain non-negative integers")
+
     round_number = int(manifest.get("repair_round", 0)) + 1
     prompt = build_repair_prompt(exchange, defects, round_number)
     repair_dir = exchange / "repair"
@@ -233,15 +194,6 @@ def open_repair_round(
             "defects": defects,
         },
     )
-
-    resolved_tab = tab_id if tab_id is not None else active.get("tab_id") if active else None
-    if resolved_tab is None:
-        raise ValueError("tab_id is required when no call is active")
-    if not isinstance(resolved_tab, int) or isinstance(resolved_tab, bool) or resolved_tab < 0:
-        raise ValueError("tab_id must be a non-negative integer")
-    baseline = sorted(set(download_baseline or []))
-    if any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in baseline):
-        raise ValueError("download_baseline must contain non-negative integers")
 
     reopened = {
         "exchange_id": exchange_id,
@@ -269,13 +221,12 @@ def open_repair_round(
         }
     )
     active_path = _active_path_for(root, exchange_id)
-    with state_lock(root):
-        _write_json_atomic(active_path, reopened)
-        try:
-            _write_json_atomic(manifest_path, manifest)
-        except BaseException:
-            active_path.unlink(missing_ok=True)
-            raise
+    _write_json_atomic(active_path, reopened)
+    try:
+        _write_json_atomic(manifest_path, manifest)
+    except BaseException:
+        active_path.unlink(missing_ok=True)
+        raise
     return {
         "exchange_id": exchange_id,
         "round": round_number,
@@ -284,245 +235,4 @@ def open_repair_round(
         "prompt_path": str(prompt_path),
         "defects_path": str(defects_path),
         "active": reopened,
-    }
-
-
-def _artifact_defects(
-    raw: dict[str, Any], response_dir: Path, expected_main: str
-) -> list[dict[str, Any]]:
-    artifacts = raw.get("artifacts_manifest")
-    if not isinstance(artifacts, list):
-        return [
-            _defect(
-                "ARTIFACTS_MANIFEST_INVALID",
-                expected_main,
-                "artifacts_manifest as a JSON array",
-                f"artifacts_manifest is {type(artifacts).__name__}",
-            )
-        ]
-
-    defects: list[dict[str, Any]] = []
-    members: dict[str, tuple[str, int]] | None = None
-    for position, artifact in enumerate(artifacts, 1):
-        label = f"artifacts_manifest[{position}]"
-        if not isinstance(artifact, dict):
-            defects.append(
-                _defect(
-                    "ARTIFACT_ENTRY_INVALID",
-                    label,
-                    "a JSON object per artifact",
-                    f"entry is {type(artifact).__name__}",
-                )
-            )
-            continue
-        name = artifact.get("filename")
-        if not isinstance(name, str) or not name or Path(name).name != name:
-            defects.append(
-                _defect(
-                    "ARTIFACT_ENTRY_INVALID",
-                    label,
-                    "filename as a plain file name with no path separators",
-                    f"filename {json.dumps(name)}",
-                )
-            )
-            continue
-        if name.casefold() == expected_main.casefold():
-            # Self-reference. The declared digest can never be right, because the
-            # file would have to contain the hash of itself. Saying "recompute
-            # the hash" here would ask for something impossible and the
-            # correction round would never converge.
-            defects.append(
-                _defect(
-                    "MAIN_JSON_LISTED_AS_ARTIFACT",
-                    name,
-                    "artifacts_manifest to list only the additional files, never "
-                    "the main JSON itself",
-                    f"artifacts_manifest contains an entry for {name}, which is "
-                    "the main JSON. Remove that entry entirely. Keep the file "
-                    "listed in delivery, which is correct.",
-                )
-            )
-            continue
-        status = artifact.get("status")
-        if status not in {"CREATED", "MISSING", "NOT_CREATED"}:
-            defects.append(
-                _defect(
-                    "ARTIFACT_ENTRY_INVALID",
-                    name,
-                    "status CREATED, MISSING, or NOT_CREATED",
-                    f"status {json.dumps(status)}",
-                )
-            )
-            continue
-        if status != "CREATED":
-            continue
-
-        declared_size = artifact.get("size")
-        declared_digest = artifact.get("sha256")
-        media_type = artifact.get("media_type")
-        if not isinstance(media_type, str) or not media_type:
-            defects.append(
-                _defect(
-                    "ARTIFACT_ENTRY_INVALID",
-                    name,
-                    "media_type as a non-empty string",
-                    f"media_type {json.dumps(media_type)}",
-                )
-            )
-        if not isinstance(declared_size, int) or isinstance(declared_size, bool) or declared_size < 0:
-            defects.append(
-                _defect(
-                    "ARTIFACT_ENTRY_INVALID",
-                    name,
-                    "size as a non-negative integer byte count",
-                    f"size {json.dumps(declared_size)}",
-                )
-            )
-            declared_size = None
-        if not isinstance(declared_digest, str) or not re.fullmatch(
-            r"[0-9a-fA-F]{64}", declared_digest
-        ):
-            defects.append(
-                _defect(
-                    "ARTIFACT_ENTRY_INVALID",
-                    name,
-                    "sha256 as 64 hexadecimal characters",
-                    f"sha256 {json.dumps(declared_digest)}",
-                )
-            )
-            declared_digest = None
-
-        # A declared artifact is either a file beside the main JSON or a member of
-        # the archive that came down with it. Looking only on disk made every
-        # declared member of a byte-exact archive an ARTIFACT_MISSING defect, and
-        # told the operator to spend a correction round repairing nothing.
-        path = response_dir / name
-        if path.is_file():
-            resolved = _sha256(path)
-        else:
-            if members is None:
-                members = archive_member_index(response_dir)
-            resolved = members.get(name.casefold())
-        if resolved is None:
-            defects.append(
-                _defect(
-                    "ARTIFACT_MISSING",
-                    name,
-                    "the file to be delivered, beside the main JSON or inside the "
-                    "outputs archive",
-                    "it was declared CREATED but is neither a delivered file nor a "
-                    "member of a delivered archive",
-                )
-            )
-            continue
-        actual_digest, actual_size = resolved
-        if declared_size is not None and declared_size != actual_size:
-            defects.append(
-                _defect(
-                    "ARTIFACT_SIZE_MISMATCH",
-                    name,
-                    f"size {declared_size} bytes, as your manifest declared",
-                    f"the delivered file is {actual_size} bytes",
-                )
-            )
-        if declared_digest is not None and declared_digest.casefold() != actual_digest:
-            defects.append(
-                _defect(
-                    "ARTIFACT_HASH_MISMATCH",
-                    name,
-                    f"sha256 {declared_digest.casefold()}, as your manifest declared",
-                    f"the delivered file hashes to {actual_digest}",
-                )
-            )
-    return defects
-
-
-def _undeclared_expected_defects(
-    raw: dict[str, Any], manifest: dict[str, Any], response_dir: Path
-) -> list[dict[str, Any]]:
-    """Catch a promised artifact that the main JSON never mentions at all."""
-    declared_in_main = set()
-    artifacts = raw.get("artifacts_manifest")
-    if isinstance(artifacts, list):
-        for artifact in artifacts:
-            if isinstance(artifact, dict) and isinstance(artifact.get("filename"), str):
-                declared_in_main.add(artifact["filename"].casefold())
-
-    defects: list[dict[str, Any]] = []
-    for item in manifest.get("expected_artifacts", []):
-        name = _safe_name(str(item), "expected artifact filename")
-        if name.casefold() in declared_in_main:
-            continue
-        if (response_dir / name).is_file():
-            continue
-        defects.append(
-            _defect(
-                "EXPECTED_ARTIFACT_ABSENT",
-                name,
-                "this artifact, which the call was prepared to expect",
-                "it is neither listed in artifacts_manifest nor delivered",
-            )
-        )
-    return defects
-
-
-def _delivery_defects(
-    raw: dict[str, Any],
-    expected_main: str,
-    response_dir: Path,
-    expected_downloads: tuple[str, ...] = (),
-) -> list[dict[str, Any]]:
-    delivery = raw.get("delivery")
-    if not isinstance(delivery, list) or any(
-        not isinstance(item, str) for item in delivery
-    ):
-        return [
-            _defect(
-                "DELIVERY_INVALID",
-                expected_main,
-                "delivery as an array of file names",
-                f"delivery is {json.dumps(delivery)[:120]}",
-            )
-        ]
-
-    # `delivery` names what came down as downloads, which is one archive with
-    # the main JSON inside it. A created artifact that lives inside that archive
-    # was never separately downloadable, so requiring it here reported a correct
-    # delivery as incomplete. Only files that arrived on their own belong in the
-    # requirement, and the main JSON no longer does — naming it stays acceptable
-    # because it is the response and older exchanges did download it.
-    delivered = {item.casefold() for item in delivery}
-    required: set[str] = set()
-    if not delivered & ({expected_main.casefold()} | {name.casefold() for name in expected_downloads}):
-        required.add(expected_main.casefold())
-    artifacts = raw.get("artifacts_manifest")
-    if isinstance(artifacts, list):
-        for artifact in artifacts:
-            if (
-                isinstance(artifact, dict)
-                and artifact.get("status") == "CREATED"
-                and isinstance(artifact.get("filename"), str)
-                and (response_dir / artifact["filename"]).is_file()
-            ):
-                required.add(artifact["filename"].casefold())
-    absent = sorted(required - delivered)
-    if not absent:
-        return []
-    return [
-        _defect(
-            "DELIVERY_INCOMPLETE",
-            expected_main,
-            "delivery to name the outputs archive and every separately "
-            "downloaded file",
-            "delivery omits " + ", ".join(absent),
-        )
-    ]
-
-
-def _defect(kind: str, target: str, expected: str, observed: str) -> dict[str, Any]:
-    return {
-        "kind": kind,
-        "target": target,
-        "expected": expected,
-        "observed": observed,
     }

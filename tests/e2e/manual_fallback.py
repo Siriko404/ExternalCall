@@ -30,7 +30,7 @@ def main(argv: list[str]) -> int:
         root = Path(argv[0])
         with_temp_root = False
     else:
-        root = Path(tempfile.mkdtemp(prefix="gptwebcall-fixture-"))
+        root = Path(tempfile.mkdtemp(prefix="externalcall-fixture-"))
         with_temp_root = True
     fixture = prepare(root)
 

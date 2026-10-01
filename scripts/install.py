@@ -1,9 +1,9 @@
-"""Register the GPT Web Call native-messaging host on Linux.
+"""Register the ExternalCall native-messaging host on Linux.
 
 The counterpart of install.ps1, which does the same job through the registry.
 On Linux there is no registry indirection: Chrome reads the host manifest
 directly out of a per-browser `NativeMessagingHosts/` directory, so rendering
-`native-host/com.sina.gptwebcall.template.json` and putting it there *is* the
+`native-host/com.sina.externalcall.template.json` and putting it there *is* the
 registration.
 
 The manifest must name one exact extension ID in allowed_origins, with no
@@ -33,10 +33,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from extension_id import resolve  # noqa: E402
 
-HOST_NAME = "com.sina.gptwebcall"
+HOST_NAME = "com.sina.externalcall"
 TEMPLATE_PATH = ROOT / "native-host" / f"{HOST_NAME}.template.json"
 MANIFEST_PATH = ROOT / "native-host" / f"{HOST_NAME}.json"
-HOST_PATH = ROOT / "bin" / "gptwebcall-host"
+HOST_PATH = ROOT / "bin" / "externalcall-host"
 EXTENSION_PATH = ROOT / "extension"
 MINIMUM_CHROME_MAJOR = 125
 
@@ -265,7 +265,7 @@ def check_downloads(written: list[Path]) -> None:
                 f" but the companion reads {expected}."
             )
             print("  Point the companion at the browser's directory:")
-            print(f"    export GPTWEBCALL_DOWNLOADS_DIR='{chosen}'")
+            print(f"    export EXTERNALCALL_DOWNLOADS_DIR='{chosen}'")
             print("  Then restart the browser so the companion inherits it.")
 
 

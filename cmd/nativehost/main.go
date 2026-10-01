@@ -24,9 +24,16 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	python, err := exec.LookPath("python3")
-	if err != nil {
-		python, err = exec.LookPath("python")
+	root := filepath.Dir(filepath.Dir(filepath.Clean(executable)))
+	python := filepath.Join(root, ".venv", "bin", "python")
+	if _, statErr := os.Stat(python); statErr != nil {
+		python = filepath.Join(root, ".venv", "Scripts", "python.exe")
+	}
+	if _, statErr := os.Stat(python); statErr != nil {
+		python, err = exec.LookPath("python3")
+		if err != nil {
+			python, err = exec.LookPath("python")
+		}
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Python was not found on PATH")

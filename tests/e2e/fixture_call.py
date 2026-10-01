@@ -86,7 +86,7 @@ def prepare(root: Path) -> dict:
 
 def main(argv: list[str]) -> int:
     root = Path(argv[0]) if argv else Path(
-        tempfile.mkdtemp(prefix="gptwebcall-fixture-")
+        tempfile.mkdtemp(prefix="externalcall-fixture-")
     )
     print(json.dumps(prepare(root), separators=(",", ":")))
     return 0

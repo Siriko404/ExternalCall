@@ -11,5 +11,5 @@ bin="$root/bin"
 mkdir -p "$bin"
 
 cd "$root"
-go build -o "$bin/gptwebcall-host" ./cmd/nativehost
-echo "$bin/gptwebcall-host"
+go build -o "$bin/externalcall-host" ./cmd/nativehost
+echo "$bin/externalcall-host"

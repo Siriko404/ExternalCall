@@ -18,7 +18,7 @@ class NativeHostTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         sources = base / "sources"
         sources.mkdir()
         request = sources / "WEB_REVIEW_REQUEST.json"
@@ -79,6 +79,7 @@ class NativeHostTests(unittest.TestCase):
             ALLOWED_COMMANDS,
             {
                 "health",
+                "status.snapshot",
                 "calls.list_ready",
                 "call.active",
                 "calls.active",
@@ -176,8 +177,8 @@ class NativeHostTests(unittest.TestCase):
             ),
         )
 
-        first = dispatch(self.root, self.message("call.done"))
-        second = dispatch(self.root, self.message("call.done"))
+        first = dispatch(self.root, self.message("call.done", {"exchange_id": self.manifest["exchange_id"]}))
+        second = dispatch(self.root, self.message("call.done", {"exchange_id": self.manifest["exchange_id"]}))
 
         self.assertEqual(first, second)
         self.assertEqual(first["status"], "INCOMPLETE")

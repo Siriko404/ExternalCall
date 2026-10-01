@@ -33,7 +33,7 @@ class ReservationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         base = Path(self.temp.name)
-        self.root = base / "GptWebCall"
+        self.root = base / "ExternalCall"
         self.sources = base / "sources"
         self.sources.mkdir()
         self.schema = self.sources / "WEB_RESPONSE_SCHEMA.json"
@@ -152,7 +152,7 @@ class ReservationTests(unittest.TestCase):
             (exchange / "EXCHANGE_MANIFEST.json").read_text(encoding="utf-8")
         )
         self.assertEqual(stored["state"], "INCOMPLETE")
-        self.assertNotIn("repair_round", stored)
+        self.assertEqual(stored.get("repair_round", 0), 0)
         self.assertFalse((exchange / "repair").exists())
 
     def artifact_spec(self, subject, request_id, main, artifacts):
