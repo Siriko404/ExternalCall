@@ -1,6 +1,6 @@
 ---
 name: prep
-description: Keyword xcall. Clarify and prepare one bounded external AI job for ChatGPT Web or Claude Web, with explicit scope, deliverables and acceptance criteria. Use when the user asks to send work to an external web model.
+description: Keyword xcall. Clarify and prepare one bounded external AI job for ChatGPT, Claude or Grok Web, with explicit scope, deliverables and acceptance criteria. Use when the user asks to send work to an external web model.
 disable-model-invocation: true
 ---
 
@@ -30,7 +30,7 @@ focused operating reference only for lifecycle commands or recovery.
 7. Run `./externalcall prepare --job <job.json>` (Windows: `externalcall.cmd`).
    Report the exchange ID and input archive path. One file comes back: the
    generated outputs ZIP containing main JSON and agreed artifacts.
-8. Explain the next operator action: choose ChatGPT/Claude and **In a new tab** or
+8. Explain the next operator action: choose ChatGPT/Claude/Grok and **In a new tab** or
    **In the conversation I am in** per call; Go, site Attach, inspect, Send,
    download the outputs ZIP, Done. Never send, download or press Done for them.
 

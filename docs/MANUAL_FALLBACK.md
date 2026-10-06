@@ -4,7 +4,7 @@ Use the same generated job and archive when the extension is unavailable.
 Prepare with `./externalcall brief --job job.json`, show the brief, then
 `./externalcall prepare --job job.json`. Windows uses `externalcall.cmd`.
 
-Open the chosen ChatGPT/Claude conversation yourself. Attach the recorded input
+Open the chosen ChatGPT/Claude/Grok conversation yourself. Attach the recorded input
 ZIP, paste the supplied launch instruction if needed, inspect and send. Download
 one expected outputs archive. Do not rename another call's ZIP to force routing.
 

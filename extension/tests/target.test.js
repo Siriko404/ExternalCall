@@ -1,9 +1,44 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { chooseTargetTab, normalizeProvider, providerBaseUrl } from "../lib/target.js";
+import {
+  PROVIDER_IDS,
+  chooseTargetTab,
+  normalizeProvider,
+  providerBaseUrl,
+  providerLabel,
+} from "../lib/target.js";
 
 const chatTab = { id: 7, url: "https://chatgpt.com/c/abc-123" };
+const grokTab = { id: 9, url: "https://grok.com/c/def-456" };
+
+
+test("the three sites are known and anything else falls back to ChatGPT", () => {
+  assert.deepEqual([...PROVIDER_IDS], ["gpt", "claude", "grok"]);
+  assert.equal(normalizeProvider("grok"), "grok");
+  assert.equal(providerBaseUrl("grok"), "https://grok.com/");
+  assert.equal(providerLabel("grok"), "Grok");
+  assert.equal(normalizeProvider("nonsense"), "gpt");
+  assert.equal(normalizeProvider(undefined), "gpt");
+});
+
+
+test("conductor mode binds the focused Grok conversation, and only a Grok one", () => {
+  assert.deepEqual(
+    chooseTargetTab({ mode: "current", provider: "grok", activeTab: grokTab }),
+    { create: false, tabId: 9 },
+  );
+  // A ChatGPT tab is the wrong site when Grok was chosen, and the refusal names
+  // the site whose permission would explain a withheld URL.
+  assert.throws(
+    () => chooseTargetTab({ mode: "current", provider: "grok", activeTab: chatTab }),
+    /not a Grok conversation.*grok\.com permission/s,
+  );
+  assert.throws(
+    () => chooseTargetTab({ mode: "current", provider: "gpt", activeTab: grokTab }),
+    /not a ChatGPT conversation.*chatgpt\.com permission/s,
+  );
+});
 
 
 test("the default opens a fresh conversation", () => {

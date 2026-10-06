@@ -1,7 +1,7 @@
 # Live smoke test
 
 Use a clearly labeled test job and the bundled packager. One file comes back:
-exactly one downloadable expected outputs ZIP. Test both ChatGPT and Claude,
+exactly one downloadable expected outputs ZIP. Test ChatGPT, Claude and Grok,
 new and current conversations, failed attachment/prompt fallback, correct and
 corrupt returns, and wrong-provider refusal. Record actual observations.
 

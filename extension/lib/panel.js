@@ -8,7 +8,7 @@
  */
 
 const STAGES = {
-  WAITING_FOR_ATTACH_CLICK: "Waiting for you to click Attach files in ChatGPT.",
+  WAITING_FOR_ATTACH_CLICK: "Waiting for you to click Attach files in the conversation.",
   ATTACHED: "Files attached. Review them, then click Send.",
   COLLECTING: "Collecting downloads.",
   REPAIR_PROMPTED: "Correction prompt is in the composer. Click Send.",

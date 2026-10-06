@@ -1,6 +1,6 @@
 # ExternalCall
 
-Prepare a clear, bounded job for ChatGPT Web or Claude Web, hand over one frozen
+Prepare a clear, bounded job for ChatGPT, Claude or Grok Web, hand over one frozen
 ZIP, and collect one returned ZIP. The terminal agent discusses the job with you;
 software generates names, prompt, schemas and package inventory.
 
@@ -32,7 +32,7 @@ invocation configuration; Claude's invocation flag is not a portable guarantee.
 A precise instruction needs no repeated interview or ceremonial approval. Missing
 material decisions must be settled. Every package gets a short job brief.
 
-The side panel chooses ChatGPT/Claude and new/current conversation per call.
+The side panel chooses ChatGPT/Claude/Grok and new/current conversation per call.
 It attaches only when you click the site's Attach control. Review before Send.
 After downloading the expected outputs ZIP, click Done. Integrity, schema,
 responder completion and semantic acceptance are distinct facts.

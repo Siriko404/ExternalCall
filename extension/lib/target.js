@@ -9,17 +9,29 @@
 
 export const CHATGPT_URL = "https://chatgpt.com/";
 export const CLAUDE_URL = "https://claude.ai/";
+export const GROK_URL = "https://grok.com/";
+
+/* The sites a call can be delivered to. Adding one here is not enough on its
+ * own: manifest.json must grant the matching host permission, or `tab.url` is
+ * withheld for that site and every "current conversation" delivery is refused. */
+const PROVIDERS = {
+  gpt: { url: CHATGPT_URL, label: "ChatGPT", permission: "chatgpt.com" },
+  claude: { url: CLAUDE_URL, label: "Claude", permission: "claude.ai" },
+  grok: { url: GROK_URL, label: "Grok", permission: "grok.com" },
+};
+
+export const PROVIDER_IDS = Object.freeze(Object.keys(PROVIDERS));
 
 export function normalizeProvider(value) {
-  return value === "claude" ? "claude" : "gpt";
+  return Object.hasOwn(PROVIDERS, value) ? value : "gpt";
 }
 
 export function providerBaseUrl(provider) {
-  return normalizeProvider(provider) === "claude" ? CLAUDE_URL : CHATGPT_URL;
+  return PROVIDERS[normalizeProvider(provider)].url;
 }
 
 export function providerLabel(provider) {
-  return normalizeProvider(provider) === "claude" ? "Claude" : "ChatGPT";
+  return PROVIDERS[normalizeProvider(provider)].label;
 }
 
 /* Returns {create: true} to open a fresh conversation, or {create: false,
@@ -33,16 +45,15 @@ export function providerLabel(provider) {
  */
 export function chooseTargetTab({ mode, provider, activeTab, handoffs = {} } = {}) {
   const agent = normalizeProvider(provider);
-  const baseUrl = providerBaseUrl(agent);
-  const agentName = providerLabel(agent);
+  const { url: baseUrl, label: agentName, permission } = PROVIDERS[agent];
   if (mode !== "current") {
     return { create: true };
   }
   if (!activeTab || !Number.isInteger(activeTab.id)) {
     throw new Error(`No active tab to send into. Focus your ${agentName} conversation.`);
   }
-  /* The extension holds host permissions for chatgpt.com and claude.ai, so `url`
-   * is populated for those tabs and undefined everywhere else. An unreadable URL
+  /* The extension holds host permissions for the provider sites, so `url` is
+   * populated for those tabs and undefined everywhere else. An unreadable URL
    * is therefore a refusal and never a fallback — a missing URL is exactly the
    * case where we cannot prove the tab is safe to arm. */
   if (typeof activeTab.url !== "string" || !activeTab.url.startsWith(baseUrl)) {
@@ -50,17 +61,11 @@ export function chooseTargetTab({ mode, provider, activeTab, handoffs = {} } = {
      * here, and the operator staring straight at a conversation tab needs the
      * second cause named or the message reads as a lie. */
     throw new Error(
-      agent === "claude"
-        ? "The focused tab is not a Claude conversation. Open the conversation you "
-          + "want this call delivered into, focus it, then click Go. If it already "
-          + "is one, Chrome is withholding the tab's address because the extension's "
-          + "claude.ai permission was declined — reload the extension and accept "
-          + "the prompt."
-        : "The focused tab is not a ChatGPT conversation. Open the conversation you "
-          + "want this call delivered into, focus it, then click Go. If it already "
-          + "is one, Chrome is withholding the tab's address because the extension's "
-          + "chatgpt.com permission was declined — reload the extension and accept "
-          + "the prompt.",
+      `The focused tab is not a ${agentName} conversation. Open the conversation you `
+      + "want this call delivered into, focus it, then click Go. If it already "
+      + "is one, Chrome is withholding the tab's address because the extension's "
+      + `${permission} permission was declined — reload the extension and accept `
+      + "the prompt.",
     );
   }
   const bound = Object.values(handoffs).find((item) => item?.tabId === activeTab.id);

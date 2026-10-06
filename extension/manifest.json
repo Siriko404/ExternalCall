@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ExternalCall",
   "version": "0.1.0",
-  "description": "User-controlled GPT and Claude Web file handoff and response collection.",
+  "description": "User-controlled GPT, Claude and Grok Web file handoff and response collection.",
   "minimum_chrome_version": "125",
   "permissions": [
     "sidePanel",
@@ -13,7 +13,8 @@
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
-    "https://claude.ai/*"
+    "https://claude.ai/*",
+    "https://grok.com/*"
   ],
   "background": {
     "service_worker": "service_worker.js",

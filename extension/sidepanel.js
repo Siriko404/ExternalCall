@@ -23,6 +23,7 @@ import {
   downloadGuard,
   describeDownloadFailure,
 } from "./lib/panel.js";
+import { PROVIDER_IDS, providerLabel } from "./lib/target.js";
 
 const el = (id) => document.querySelector(`#${id}`);
 
@@ -82,7 +83,7 @@ chrome.storage.local.get(["goMode", "agent"]).then((stored) => {
   if (stored.goMode === "current" || stored.goMode === "new") {
     defaultDestination = stored.goMode;
   }
-  if (stored.agent === "claude" || stored.agent === "gpt") {
+  if (PROVIDER_IDS.includes(stored.agent)) {
     defaultProvider = stored.agent;
   }
   refresh();
@@ -450,7 +451,7 @@ function destinationPicker(exchangeId, onChosen = () => {}) {
   const hint = document.createElement("p");
   hint.className = "hint";
   const describe = () => {
-    const agent = providerFor(exchangeId) === "claude" ? "Claude" : "ChatGPT";
+    const agent = providerLabel(providerFor(exchangeId));
     hint.textContent = picker.value === "current"
       ? `Whichever ${agent} conversation is focused when you click Go.`
       : `Opens a new tab with a new ${agent} conversation. Nothing it has been `
@@ -478,6 +479,7 @@ function providerPicker(exchangeId) {
   for (const [value, label] of [
     ["gpt", "GPT"],
     ["claude", "Claude"],
+    ["grok", "Grok"],
   ]) {
     const option = document.createElement("option");
     option.value = value;

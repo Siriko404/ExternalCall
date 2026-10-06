@@ -75,7 +75,7 @@ hashes and schemas does not prove the answer is correct.
 
 Several calls may be active at once. Generated output names are the routing key;
 Chrome does not report an originating tab for every download. The destination is
-per call: choose ChatGPT/Claude and either **In a new tab** or **In the conversation
+per call: choose ChatGPT/Claude/Grok and either **In a new tab** or **In the conversation
 I am in**. Existing-thread context can affect the answer; choose intentionally.
 
 Go verifies frozen inputs before activating. The extension never presses Send,

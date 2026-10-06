@@ -7,7 +7,7 @@ import {
   anyShouldObserveDownload,
   handoffForTab,
 } from "./lib/downloads.js";
-import { chooseTargetTab, normalizeProvider, providerBaseUrl, providerLabel } from "./lib/target.js";
+import { PROVIDER_IDS, chooseTargetTab, normalizeProvider, providerBaseUrl, providerLabel } from "./lib/target.js";
 import { createHandoffStore } from "./lib/handoffs.js";
 
 const handoffStore = createHandoffStore(chrome.storage.session);
@@ -138,7 +138,7 @@ async function getStatus() {
 
 /* Which conversation the call lands in.
  *
- * "new" starts a fresh ChatGPT conversation — the bounded, self-contained call
+ * "new" starts a fresh conversation on the chosen site — the bounded, self-contained call
  * the protocol is built around. "current" binds the conversation already open in
  * the focused tab, so a call can be delivered into a long-running thread that
  * has accumulated context on purpose. The two are different products: a call
@@ -400,6 +400,8 @@ async function completeAttachment(source, params, handoff) {
 /* Fallback for a chooser event with no backendNodeId: the composer's hidden
  * <input type=file> is still on the page, so locate it by query. Claude exposes
  * #chat-input-file-upload-onpage; ChatGPT wires the last input most recently.
+ * Grok has no known dedicated id; it gets the generic last-input fallback until
+ * a live call shows otherwise.
  */
 async function findFileInputNode(source) {
   await chrome.debugger.sendCommand(source, "DOM.enable", {});
@@ -438,7 +440,7 @@ async function openRepairRound(exchangeId) {
   if (typeof target !== "string" || !target) {
     throw new Error("No exchange to repair");
   }
-  if (handoff.exchangeId !== target || !["gpt", "claude"].includes(handoff.provider)) {
+  if (handoff.exchangeId !== target || !PROVIDER_IDS.includes(handoff.provider)) {
     throw new Error("No matching call/provider binding. Use Resume attachment first.");
   }
   const boundTab = await chrome.tabs.get(tabId);

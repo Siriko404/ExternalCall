@@ -52,7 +52,7 @@ How to use it, in full:
                   and hands you an exchange to launch
   /xcall:manage status, results, recovery and correction
 
-  In the side panel: Go -> click ChatGPT's own Attach files -> check what
+  In the side panel: Go -> click the site's own Attach files -> check what
   attached -> Send -> download the one archive -> Done and validate.
 
   The extension never sends and never reads the reply page. Those clicks are
