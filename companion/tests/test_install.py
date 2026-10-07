@@ -94,7 +94,10 @@ class ExtensionIdTests(unittest.TestCase):
 
     def test_chrome_s_own_record_is_read_when_it_exists(self):
         with tempfile.TemporaryDirectory() as temp:
-            base = Path(temp)
+            # Resolved, because that is what Chrome records. A Windows temp
+            # directory is handed out by its short 8.3 name (RUNNER~1), and a
+            # profile never stores a path in that form.
+            base = Path(temp).resolve()
             extension = base / "checkout" / "extension"
             extension.mkdir(parents=True)
             profile = base / "User Data" / "Profile 6"
