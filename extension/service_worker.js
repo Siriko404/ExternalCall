@@ -34,6 +34,9 @@ const WATCH_PERIOD_MINUTES = 0.5;
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  // Reloading the extension is an install, not a startup, and it forgets every
+  // binding the same way. An archive that landed meanwhile is in the folder.
+  collectLanded().catch(console.error);
 });
 
 

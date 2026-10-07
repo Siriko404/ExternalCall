@@ -427,7 +427,9 @@ function runningCard(call) {
     formatElapsed(call.since, Date.now()));
   card.append(h("div", { class: "line" },
     ring(call.phase),
-    who(call, describeStage(call.handoff), call.handoff?.message ?? ""),
+    // Once the archive is in, what the operator was last asked to do is over.
+    who(call, call.phase === "checking" ? "Checking the archive" : describeStage(call.handoff),
+      call.handoff?.message ?? ""),
     clock,
     call.phase === "waiting" ? stop() : null));
 

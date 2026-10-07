@@ -228,6 +228,27 @@ test("an answer that lands with no call bound is handed to the folder watch", as
 });
 
 
+/* A browser start and an extension reload both forget which call was in which
+ * tab. Either way the folder is looked in once, straight away, for an archive
+ * that landed while nothing was listening. */
+test("the folder is looked in once when the browser starts or the extension reloads", async () => {
+  for (const event of ["startup", "installed"]) {
+    reset();
+    browser.answers["calls.collect"] = {
+      finished: [{ exchange_id: "ex-9", status: "COMPLETE" }], waiting: ["ex-10"], failed: [],
+    };
+
+    listeners[event]();
+    await quiet();
+
+    assert.deepEqual(commands(), ["calls.collect"], event);
+    assert.deepEqual(finishedMarks(), { "ex-9": "COMPLETE" }, event);
+    // One call is still out, so the watch is left running for it.
+    assert.equal(browser.alarms.has("externalcall:watch"), true, event);
+  }
+});
+
+
 test("the folder watch runs while a call is out and stops when none is", async () => {
   reset();
   browser.answers["call.go"] = {
