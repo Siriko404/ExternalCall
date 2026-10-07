@@ -118,7 +118,7 @@ class UpdateTests(unittest.TestCase):
 
     def test_an_update_fast_forwards_and_names_what_the_operator_must_do(self):
         self.publish("extension/sidepanel.js", "new panel\n")
-        self.publish("skill/xcall/skills/manage/SKILL.md", "new menu\n")
+        self.publish("skill/excall/skills/manage/SKILL.md", "new menu\n")
 
         result = update(self.root)
 
@@ -152,6 +152,25 @@ class UpdateTests(unittest.TestCase):
         """Where every repository starts. Refusing to update until someone cuts
         a tag would make the command useless on the day it shipped."""
         self.assertEqual(latest_published(self.root), ("origin/main", "main"))
+
+    def test_the_branch_followed_is_the_one_the_remote_calls_its_default(self):
+        """This repository's default branch is not `main`. A checkout that also
+        carries a stale `origin/main` followed that instead, and reported it
+        was current while the published branch moved on without it."""
+        git(self.upstream, "branch", "-m", "main", "rewrite")
+        self.publish("companion/core.py", "published on the default branch\n")
+        # The local origin/main still exists and still points at the old commit.
+        self.assertTrue(git(self.root, "rev-parse", "origin/main"))
+
+        self.assertEqual(latest_published(self.root), ("origin/rewrite", "rewrite"))
+        result = update(self.root)
+
+        self.assertEqual(result["status"], "UPDATED")
+        self.assertEqual(result["tracking"], "rewrite")
+        self.assertEqual(
+            (self.root / "companion" / "core.py").read_text(encoding="utf-8"),
+            "published on the default branch\n",
+        )
 
     def test_a_release_is_preferred_over_the_branch_once_one_exists(self):
         """And unreleased work on the branch is deliberately left behind."""

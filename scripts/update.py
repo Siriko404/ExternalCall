@@ -77,8 +77,23 @@ def _is_ancestor(root: Path, earlier: str, later: str) -> bool:
     ).returncode == 0
 
 
+def default_branch(root: Path, remote: str = "origin") -> str:
+    """The branch the remote itself calls its default.
+
+    Asked of the remote, not assumed and not read from a local ref. This
+    repository's default is not `main`, and a checkout cloned from somewhere
+    else keeps a stale `origin/main` that an update would then follow forever
+    while reporting that it was current.
+    """
+    for line in _git(root, "ls-remote", "--symref", remote, "HEAD").splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[0] == "ref:" and parts[2] == "HEAD":
+            return parts[1].removeprefix("refs/heads/")
+    return "main"
+
+
 def latest_published(root: Path, remote: str = "origin") -> tuple[str, str]:
-    """The newest release tag, or the remote's main branch when there are none.
+    """The newest release tag, or the remote's default branch when there are none.
 
     Tags are read with git rather than the GitHub API so this works from a
     checkout with no `gh` and no credentials. When the repository has never
@@ -99,7 +114,8 @@ def latest_published(root: Path, remote: str = "origin") -> tuple[str, str]:
             key=lambda tag: [int(part) for part in re.findall(r"\d+", tag)],
         )
         return f"refs/tags/{newest}", newest
-    return f"{remote}/main", "main"
+    branch = default_branch(root, remote)
+    return f"{remote}/{branch}", branch
 
 
 def update(root: Path = ROOT, *, remote: str = "origin") -> dict[str, object]:

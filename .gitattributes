@@ -1,0 +1,3 @@
+# gofmt writes LF. A Windows checkout that converts Go sources to CRLF makes
+# `gofmt -l` list every one of them, which fails the required check.
+*.go text eol=lf
