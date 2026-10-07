@@ -1,3 +1,16 @@
-# gofmt writes LF. A Windows checkout that converts Go sources to CRLF makes
-# `gofmt -l` list every one of them, which fails the required check.
+# The required check runs on Windows too. Sources are kept LF there: gofmt
+# writes LF and lists any Go file that is not, and the tests read the other
+# sources as text and match them line by line.
+* text=auto
 *.go text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.sh text eol=lf
+*.zip binary
+*.pdf binary
+*.woff2 binary
