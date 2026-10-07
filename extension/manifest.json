@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ExternalCall",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "User-controlled GPT, Claude and Grok Web file handoff and response collection.",
   "minimum_chrome_version": "125",
   "permissions": [
@@ -9,7 +9,8 @@
     "nativeMessaging",
     "debugger",
     "downloads",
-    "storage"
+    "storage",
+    "alarms"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",

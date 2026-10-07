@@ -15,6 +15,10 @@ test("manifest requests only the approved permissions", async () => {
     "debugger",
     "downloads",
     "storage",
+    // Added deliberately. A call finishes itself when its archive lands, and
+    // with the panel closed the only thing that can go and look in the
+    // Downloads folder is an alarm. It grants access to nothing.
+    "alarms",
   ]);
   /* Sending a call into the conversation already open means reading the focused
    * tab's URL first, and refusing anything that is not the chosen agent. Host

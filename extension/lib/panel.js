@@ -1,36 +1,77 @@
 /* Pure panel logic, kept out of the DOM so it can be tested.
  *
- * downloadGuard is the important one. Clicking Done stops monitoring, so a file
- * still in flight at that moment is never collected and has to be copied into
- * the exchange by hand afterwards. The guard turns that into something visible:
- * Done stays disabled while an expected file is missing, and enabling it is a
- * deliberate act rather than an accident of timing.
+ * callCentre is the important one. The panel is three lists, in the order the
+ * operator works through them: calls ready to send, calls that are running,
+ * and calls that are over. It decides which call is in which, and gathers
+ * everything a row needs from the separate sources the companion and the
+ * browser report.
  */
 
-const STAGES = {
-  WAITING_FOR_ATTACH_CLICK: "Waiting for you to click Attach files in the conversation.",
-  ATTACHED: "Files attached. Review them, then click Send.",
-  COLLECTING: "Collecting downloads.",
-  REPAIR_PROMPTED: "Correction prompt is in the composer. Click Send.",
+import { providerLabel } from "./target.js";
+
+/* What a running call needs from the operator right now, in a few words. The
+ * card is one line, so this is the short form; the full message stays on the
+ * handoff and is what the card shows on hover. */
+const CAPTIONS = {
+  WAITING_FOR_ATTACH_CLICK: (handoff) => `Click Attach in ${providerLabel(handoff.provider)}`,
+  ATTACHED: (handoff) => (handoff.launchInserted === false
+    ? "Paste the instruction, then Send"
+    : "Review, then Send"),
+  REPAIR_PROMPT_INSERTED: () => "Correction typed. Review, then Send",
+  REPAIR_PROMPT_READY: () => "Paste the correction, then Send",
+  DOWNLOAD_MOVED: () => "Checking the archive",
+  DOWNLOAD_INVALID: () => "Checking the archive",
 };
 
-export function describeStage(status) {
-  return STAGES[status] ?? String(status ?? "Running.");
+export function describeStage(handoff) {
+  if (!handoff) {
+    return "";
+  }
+  const caption = CAPTIONS[handoff.status];
+  return caption ? caption(handoff) : String(handoff.message ?? handoff.status ?? "");
 }
 
 
-/* The panel is two lists of calls: the ones that need something, and the ones
- * that are over. This decides which is which, and gathers everything a row
- * needs from the four separate sources the companion and the browser report.
+/* Which of the five things a call in the Running list is doing.
  *
- * A call appears once. `recent` is every exchange including the prepared and
- * the running ones, so the archive is what is left after the top list has
- * taken what it needs — otherwise a running call is in the panel twice, once
- * as work and once as history.
+ * lost       the companion holds it, the browser no longer knows its tab
+ * waiting    sent or about to be; its archive has not landed
+ * checking   the archive is in and is being validated
+ * complete   it finished and the delivery checked out
+ * incomplete it finished and the delivery has defects
  *
- * needsResume is per call, not per panel. A browser restart destroys the
- * binding between a call and its conversation while the companion still holds
- * the call; with several calls running, one can be lost and another not.
+ * "checking" is read from the archive, not from a timer: the companion reports
+ * the archive as arrived, or the browser has just reported filing it. A check
+ * that failed goes back to waiting, where the card says why and can still be
+ * stopped; "checking" has no controls, so it must never be a place to get stuck.
+ */
+function activePhase(handoff, progress) {
+  if (handoff === null) {
+    return "lost";
+  }
+  if (handoff.status === "CHECK_FAILED") {
+    return "waiting";
+  }
+  if (progress?.complete || handoff.status === "DOWNLOAD_MOVED" || handoff.status === "DOWNLOAD_INVALID") {
+    return "checking";
+  }
+  return "waiting";
+}
+
+
+/* A call appears once. `recent` is every exchange including the prepared and
+ * the running ones, so History is what is left after the two lists above it
+ * have taken what they need.
+ *
+ * A finished call stays in Running until the operator moves it on, because it
+ * finished on its own and has to be seen changing colour. `finished` is the
+ * record of those; it is honoured only for an exchange the companion still
+ * reports as finished, so a call sent again or corrected in place goes back to
+ * being whatever it now is.
+ *
+ * "lost" is per call, not per panel. A browser restart destroys the binding
+ * between a call and its conversation while the companion still holds the
+ * call; with several calls running, one can be lost and another not.
  */
 export function callCentre(state = {}) {
   const handoffById = new Map(
@@ -39,40 +80,66 @@ export function callCentre(state = {}) {
   const progressById = new Map(
     (state.progress ?? []).map((item) => [item.exchange_id, item]),
   );
+  const recentById = new Map(
+    (state.recent ?? []).map((row) => [row.exchange_id, row]),
+  );
 
-  const now = [
-    ...(state.active ?? []).map((record) => {
-      const progress = progressById.get(record.exchange_id) ?? null;
-      const handoff = handoffById.get(record.exchange_id) ?? null;
-      return {
-        id: record.exchange_id,
-        subject: progress?.subject
-          || handoff?.subject
-          || record.request_id
-          || record.exchange_id,
-        state: "ACTIVE",
-        requestId: record.request_id ?? null,
-        record,
-        progress,
-        handoff,
-        needsResume: handoff === null,
-      };
-    }),
-    ...(state.ready ?? []).map((call) => ({
-      id: call.exchange_id,
-      subject: call.subject || call.exchange_id,
-      state: "PREPARED",
-      requestId: call.request_id ?? null,
-      call,
-    })),
-  ];
+  const ready = (state.ready ?? []).map((call) => ({
+    id: call.exchange_id,
+    subject: call.subject || call.exchange_id,
+    project: call.project ?? null,
+    call,
+  }));
 
-  const upstairs = new Set(now.map((item) => item.id));
-  const past = (state.recent ?? [])
-    .filter((row) => !upstairs.has(row.exchange_id))
+  const active = (state.active ?? []).map((record) => {
+    const progress = progressById.get(record.exchange_id) ?? null;
+    const handoff = handoffById.get(record.exchange_id) ?? null;
+    return {
+      id: record.exchange_id,
+      subject: progress?.subject
+        || recentById.get(record.exchange_id)?.subject
+        || handoff?.subject
+        || record.request_id
+        || record.exchange_id,
+      project: progress?.project ?? recentById.get(record.exchange_id)?.project ?? null,
+      phase: activePhase(handoff, progress),
+      since: progress?.started_at ?? record.started_at ?? handoff?.monitoringStartedAt ?? null,
+      record,
+      progress,
+      handoff,
+    };
+  });
+
+  const taken = new Set([...ready, ...active].map((item) => item.id));
+  const settled = (state.finished ?? [])
+    .map((mark) => recentById.get(mark?.exchangeId))
+    .filter((row) => row && !taken.has(row.exchange_id)
+      && (row.state === "COMPLETE" || row.state === "INCOMPLETE"))
     .map((row) => ({
       id: row.exchange_id,
       subject: row.subject || row.exchange_id,
+      project: row.project ?? null,
+      phase: row.state === "COMPLETE" ? "complete" : "incomplete",
+      since: null,
+      record: null,
+      progress: null,
+      handoff: null,
+    }));
+
+  /* By exchange id, which begins with its timestamp: a card keeps its place
+   * when it changes colour instead of jumping to the end of the list. */
+  const running = [...active, ...settled]
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  for (const item of running) {
+    taken.add(item.id);
+  }
+
+  const past = (state.recent ?? [])
+    .filter((row) => !taken.has(row.exchange_id))
+    .map((row) => ({
+      id: row.exchange_id,
+      subject: row.subject || row.exchange_id,
+      project: row.project ?? null,
       state: row.state ?? "",
       requestId: row.request_id ?? null,
       createdAt: row.created_at ?? null,
@@ -80,7 +147,7 @@ export function callCentre(state = {}) {
       repairRound: row.repair_round ?? 0,
     }));
 
-  return { now, past };
+  return { ready, running, past };
 }
 
 
@@ -138,33 +205,10 @@ export function formatElapsed(startedAt, nowMs) {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
-export function downloadGuard(progress, forced = false) {
-  // Without progress data we cannot know, so we must not block the operator.
-  if (!progress || !Array.isArray(progress.files) || progress.files.length === 0) {
-    return { blockDone: false, warning: "", doneLabel: "Done and validate" };
-  }
-  const missing = progress.files.filter((file) => !file.arrived).map((file) => file.filename);
-  if (missing.length === 0) {
-    return {
-      blockDone: false,
-      warning: "",
-      doneLabel: `Done and validate (${progress.files.length}/${progress.files.length})`,
-    };
-  }
-  const noun = missing.length === 1 ? "file has" : "files have";
-  return {
-    blockDone: !forced,
-    warning:
-      `${missing.length} ${noun} not arrived yet: ${missing.join(", ")}. ` +
-      "Done stops monitoring, so anything still downloading will not be collected.",
-    doneLabel: `Done and validate (${progress.received}/${progress.expected})`,
-  };
-}
-
 
 export function describeDownloadFailure(failure) {
-  // The operator needs the recovery, not the stack trace: the bytes are safe in
-  // the downloads folder and the exchange is still waiting for them.
+  // The operator needs the recovery, not the stack trace: the bytes are safe
+  // where the browser saved them, and the call is still waiting for them.
   if (!failure || typeof failure.message !== "string" || failure.message === "") {
     return "";
   }
@@ -173,7 +217,7 @@ export function describeDownloadFailure(failure) {
     : "A download";
   return (
     `${which} was not filed into its call: ${failure.message}. ` +
-    "The file is still in your downloads folder. Copy it into the exchange's " +
-    "response folder, or download it again before clicking Done."
+    "The file is still where the browser saved it. If that is your downloads " +
+    "folder it is collected from there; otherwise move it there."
   );
 }

@@ -4,61 +4,9 @@ import test from "node:test";
 import {
   describeDownloadFailure,
   describeStage,
-  downloadGuard,
   formatBytes,
   formatElapsed,
 } from "../lib/panel.js";
-
-const files = (...arrived) =>
-  arrived.map((flag, index) => ({
-    filename: index === 0 ? "pass_response.json" : `pass_outputs_${index}.zip`,
-    arrived: flag,
-    size: flag ? 1024 : 0,
-  }));
-
-const progress = (...arrived) => ({
-  files: files(...arrived),
-  received: arrived.filter(Boolean).length,
-  expected: arrived.length,
-});
-
-test("Done is blocked while an expected file is still missing", () => {
-  const guard = downloadGuard(progress(true, false));
-
-  assert.equal(guard.blockDone, true);
-  assert.match(guard.warning, /pass_outputs_1\.zip/);
-  assert.match(guard.warning, /stops monitoring/);
-  assert.equal(guard.doneLabel, "Done and validate (1/2)");
-});
-
-test("Done opens once every expected file has landed", () => {
-  const guard = downloadGuard(progress(true, true));
-
-  assert.equal(guard.blockDone, false);
-  assert.equal(guard.warning, "");
-  assert.equal(guard.doneLabel, "Done and validate (2/2)");
-});
-
-test("the operator can force Done, and the warning stays visible when they do", () => {
-  const guard = downloadGuard(progress(true, false), true);
-
-  assert.equal(guard.blockDone, false);
-  assert.notEqual(guard.warning, "");
-});
-
-test("every missing file is named, not just counted", () => {
-  const guard = downloadGuard(progress(false, false, false));
-
-  assert.match(guard.warning, /3 files have not arrived/);
-  assert.match(guard.warning, /pass_response\.json/);
-  assert.match(guard.warning, /pass_outputs_2\.zip/);
-});
-
-test("without progress data the panel must not block the operator", () => {
-  for (const value of [null, undefined, {}, { files: [] }, { files: "nope" }]) {
-    assert.equal(downloadGuard(value).blockDone, false, `blocked on ${JSON.stringify(value)}`);
-  }
-});
 
 test("byte sizes stay short enough for a narrow panel", () => {
   assert.equal(formatBytes(0), "0 B");
@@ -79,10 +27,33 @@ test("elapsed time reads as a duration and never as a negative", () => {
   assert.equal(formatElapsed(undefined, now), "");
 });
 
-test("an unknown stage falls back to its own name rather than going blank", () => {
-  assert.equal(describeStage("ATTACHED"), "Files attached. Review them, then click Send.");
-  assert.equal(describeStage("SOMETHING_NEW"), "SOMETHING_NEW");
-  assert.equal(describeStage(undefined), "Running.");
+/* A card is one line, so what the operator must do next is a few words. The
+ * site is named, because three calls can be waiting on three different sites. */
+test("a running call says what it needs in a few words, naming the site", () => {
+  assert.equal(
+    describeStage({ status: "WAITING_FOR_ATTACH_CLICK", provider: "claude" }),
+    "Click Attach in Claude",
+  );
+  assert.equal(
+    describeStage({ status: "WAITING_FOR_ATTACH_CLICK", provider: "grok" }),
+    "Click Attach in Grok",
+  );
+  assert.equal(describeStage({ status: "ATTACHED", launchInserted: true }), "Review, then Send");
+  // The line could not be typed, so pasting it is the next thing to do.
+  assert.equal(
+    describeStage({ status: "ATTACHED", launchInserted: false }),
+    "Paste the instruction, then Send",
+  );
+  assert.equal(describeStage({ status: "DOWNLOAD_MOVED" }), "Checking the archive");
+});
+
+test("a stage with no short form shows its own message rather than going blank", () => {
+  assert.equal(
+    describeStage({ status: "ERROR", message: "file chooser did not come from the bound tab" }),
+    "file chooser did not come from the bound tab",
+  );
+  assert.equal(describeStage({ status: "SOMETHING_NEW" }), "SOMETHING_NEW");
+  assert.equal(describeStage(null), "");
 });
 
 test("a download that could not be filed tells the operator how to recover", () => {
@@ -95,8 +66,11 @@ test("a download that could not be filed tells the operator how to recover", () 
   assert.match(message, /Download 42/);
   assert.match(message, /Native companion failed/);
   // The recovery matters more than the cause: the bytes are safe, and the
-  // operator has to move them before Done stops monitoring.
-  assert.match(message, /still in your downloads folder/);
+  // folder watch collects them once they are in the downloads folder.
+  assert.match(message, /still where the browser saved it/);
+  assert.match(message, /downloads folder/);
+  // There is no Done to click any more, so the advice must not mention one.
+  assert.doesNotMatch(message, /Done/);
 });
 
 test("no failure renders nothing at all", () => {

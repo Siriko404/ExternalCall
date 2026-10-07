@@ -1,332 +1,346 @@
-/* Line design. Navy ground, one green, hairlines instead of boxes.
+/* Soft-moulded, dark, minimal.
  *
- * The panel is a narrow strip read under time pressure, so the rule here is
- * that structure comes from space and single-pixel rules, never from stacked
- * containers. Nothing is filled except the one action the operator is meant to
- * take next. No shadows, no blur, no glow, no entrance animation.
+ * One surface colour everywhere; depth comes from a light edge and a dark
+ * edge. Raised means press it, sunk means it holds state. A call is one line.
+ * Colour is spent on state and on the one accent, and the surface and accent
+ * follow the agent the next call goes to, so the panel says where Go will send
+ * before anything is sent.
  */
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 500 800;
+  font-display: swap;
+  src: url("fonts/Manrope-latin.woff2") format("woff2");
+}
+
+/* Registered as colours so the surface glides from one agent's tint to the
+   next; an unregistered custom property would snap. */
+@property --base { syntax: "<color>"; inherits: true; initial-value: #1e2a28; }
+@property --hi { syntax: "<color>"; inherits: true; initial-value: #283734; }
+@property --lo { syntax: "<color>"; inherits: true; initial-value: #121b19; }
+@property --accent { syntax: "<color>"; inherits: true; initial-value: #46d9c8; }
 
 :root {
   color-scheme: dark;
-  font-family: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
+  font-family: "Manrope", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   font-size: 14px;
+  font-weight: 500;
 
-  --navy: #0a1628;
-  --navy-lift: #0f2038;
-  --line: #1b3054;
-  --line-soft: #142542;
+  /* GPT, and the look before a choice has loaded: sea green with mint. */
+  --base: #1e2a28;
+  --hi: #283734;
+  --lo: #121b19;
+  --accent: #46d9c8;
 
-  --ink: #e8f0f8;
-  --muted: #8299b5;
-  --faint: #55708f;
+  --ink: #e7eaf0;
+  --muted: #a3acbb;
+  --faint: #808a9b;
 
-  --green: #38f06b;
-  /* Finished, not live. The bright green means act now — Go, and a call ready
-     to send — so an archive full of it competes with the one thing to press.
-     Measured rather than picked: 5.98:1 on the navy ground, about half the
-     contrast of --green and still well clear of the 4.5:1 a 10px label needs.
-     --green-dim is 3.58:1, which is fine for a rule and not for text. */
-  --green-deep: #1faa52;
-  --green-dim: #1a7f3d;
-  --amber: #ffc44d;
-  --red: #ff6b6b;
+  /* State. These never follow the agent: amber is waiting, green is a
+     delivery that checked out, red is one that did not, on every tint. */
+  --amber: #f2b755;
+  --green: #5fe08f;
+  --red: #ff7b7b;
+
+  --raise: 5px 5px 12px var(--lo), -5px -5px 12px var(--hi);
+  --raise-sm: 3px 3px 7px var(--lo), -3px -3px 7px var(--hi);
+  --sink: inset 3px 3px 8px var(--lo), inset -3px -3px 8px var(--hi);
+  --sink-sm: inset 2px 2px 5px var(--lo), inset -2px -2px 5px var(--hi);
 
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, monospace;
+
+  transition: --base 0.22s ease-out, --hi 0.22s ease-out, --lo 0.22s ease-out, --accent 0.22s ease-out;
 }
+
+/* Claude: clay with terracotta. Grok: night blue with periwinkle. */
+:root[data-agent="claude"] { --base: #2b2523; --hi: #372f2c; --lo: #1b1716; --accent: #f0915f; }
+:root[data-agent="grok"] { --base: #20222e; --hi: #2a2d3c; --lo: #14151d; --accent: #8fa6ff; }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
   color: var(--ink);
-  background: var(--navy);
+  background: var(--base);
 }
+
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { cursor: not-allowed; opacity: 0.45; }
 
 /* ---------- header ---------- */
 
 .top {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   display: flex;
-  gap: 12px;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
-  background: var(--navy);
+  padding: 20px 18px 6px;
 }
 
-.brand { display: flex; gap: 10px; align-items: baseline; min-width: 0; }
-.brand-text { min-width: 0; }
-.top-right { display: flex; gap: 10px; align-items: center; flex: none; }
+h1 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+.top-right { display: flex; gap: 14px; align-items: center; }
 
-.mark {
-  flex: none;
-  color: var(--green);
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
+.led { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
+.led.up { background: var(--green); animation: breathe 2.6s ease-in-out infinite; }
+.led.down { background: var(--red); }
 
-h1 { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.2; }
+/* ---------- sections ---------- */
 
-h2 {
+main { display: grid; gap: 30px; padding: 18px 18px 26px; }
+
+.sec { display: grid; gap: 14px; min-width: 0; }
+.sec-head { display: flex; gap: 8px; align-items: center; min-height: 28px; }
+
+.sec-title {
   margin: 0;
   color: var(--faint);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.dot {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--faint);
+.count {
+  color: var(--faint);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
 }
 
-.dot.up { background: var(--green); }
-.dot.down { background: var(--red); }
+.count.accent { color: var(--accent); }
+.count.amber { color: var(--amber); }
+.count.bump { animation: bump 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.spacer { flex: 1; }
 
-/* ---------- sections: rules, not boxes ---------- */
+.hint { margin: 0; color: var(--faint); font-size: 11.5px; line-height: 1.5; }
+.empty { margin: 0; padding: 4px 2px; color: var(--faint); font-size: 12px; }
 
-main { display: block; padding: 0 16px 20px; }
+/* ---------- toggles ---------- */
+
+.sendbar { display: grid; gap: 12px; grid-template-columns: minmax(0, 3fr) minmax(0, 2.3fr); }
+
+.seg {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr));
+  padding: 3px;
+  border-radius: 12px;
+  box-shadow: var(--sink-sm);
+}
+
+.seg .thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--n, 1));
+  border-radius: 9px;
+  background: var(--base);
+  box-shadow: var(--raise-sm);
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform 0.32s cubic-bezier(0.3, 1.35, 0.5, 1);
+}
+
+.seg button {
+  position: relative;
+  z-index: 1;
+  height: 28px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--faint);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.25s;
+}
+
+.seg button[aria-checked="true"] { color: var(--accent); }
+
+/* ---------- cards: one line per call ---------- */
+
+.cards { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
 
 .card {
   display: grid;
   gap: 10px;
-  padding: 18px 0;
-  border-top: 1px solid var(--line-soft);
+  min-width: 0;
+  padding: 10px 10px 10px 16px;
+  border-radius: 16px;
+  background: var(--base);
+  box-shadow: var(--raise);
+  transition: box-shadow 0.5s, background 0.5s;
 }
 
-main > .card:first-of-type { border-top: 0; }
+.card.run { padding-left: 10px; }
+.card.enter { animation: enter 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; animation-delay: var(--d, 0ms); }
+.card.leave { animation: leave 0.24s ease-in forwards; pointer-events: none; }
+.card.changed { animation: bloom 0.6s cubic-bezier(0.3, 1.4, 0.5, 1); }
 
-.card-head {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-  justify-content: space-between;
+.card.complete {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--green) 10%, var(--base)), var(--base) 75%);
+  box-shadow: var(--raise), inset 0 0 0 1px color-mix(in srgb, var(--green) 35%, transparent);
 }
 
-.head-tools { display: flex; gap: 10px; align-items: baseline; }
+.card.incomplete {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--red) 10%, var(--base)), var(--base) 75%);
+  box-shadow: var(--raise), inset 0 0 0 1px color-mix(in srgb, var(--red) 35%, transparent);
+}
 
-.muted { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.hint { margin: 0; color: var(--faint); font-size: 11px; line-height: 1.5; }
+.line { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.who { flex: 1; min-width: 0; display: grid; gap: 2px; }
 
-.pill {
+.project {
   color: var(--faint);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pill.ok { color: var(--green); }
-.pill.wait { color: var(--amber); }
-.pill.bad { color: var(--red); }
-
-/* ---------- controls ---------- */
-
-select, button {
-  width: 100%;
-  min-height: 34px;
-  border-radius: 3px;
-  font: inherit;
-  font-size: 13px;
+.name {
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.4s;
 }
 
-/* Native selects paint their own light chrome over a dark page. Drawing the
-   control ourselves and colouring the option list keeps the popup readable. */
-select {
-  appearance: none;
-  padding: 0 30px 0 10px;
-  border: 1px solid var(--line);
-  color: var(--ink);
-  background-color: var(--navy);
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238299b5' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 11px center;
-}
+.complete .name { color: var(--green); }
+.incomplete .name { color: var(--red); }
 
-select option { color: var(--ink); background-color: var(--navy-lift); }
-select:hover { border-color: var(--muted); }
+.caption { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clock { flex: none; color: var(--faint); font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding-left: 46px; }
 
-select:focus-visible, button:focus-visible {
-  outline: 1px solid var(--green);
-  outline-offset: 1px;
-}
-
-button {
-  border: 1px solid var(--line);
-  padding: 0 12px;
-  color: var(--ink);
-  background: transparent;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-button:not(:disabled):hover { border-color: var(--muted); }
-button:disabled { cursor: not-allowed; color: var(--faint); border-color: var(--line-soft); }
-
-/* Exactly one filled control on screen: the next thing to press. */
-.primary {
-  color: var(--navy);
-  border-color: var(--green);
-  background: var(--green);
-  font-weight: 650;
-}
-
-.primary:not(:disabled):hover { border-color: var(--green); background: var(--green); }
-.primary:disabled { color: var(--faint); border-color: var(--line-soft); background: transparent; }
-
-/* Available, and deliberate. Outlined rather than filled so only one slab of
-   green is ever on screen: the thing to press now, not the thing you may. */
-.accent { color: var(--green); border-color: var(--green-dim); }
-.accent:not(:disabled):hover { border-color: var(--green); }
-
-.secondary { color: var(--muted); }
-
-.ghost {
-  width: auto;
-  min-height: 20px;
+.round {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 0;
-  color: var(--faint);
-  font-size: 11px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.ghost:not(:disabled):hover { color: var(--green); border: 0; }
-
-.row { display: flex; gap: 8px; }
-.row > button { flex: 1; }
-
-/* ---------- key/value lines ---------- */
-
-.detail, .kv {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3px 12px;
-  margin: 0;
-  font-size: 11px;
-}
-
-.detail dt, .kv dt { color: var(--faint); }
-
-.detail dd, .kv dd {
-  margin: 0;
+  border-radius: 50%;
+  background: var(--base);
+  box-shadow: var(--raise-sm);
   color: var(--muted);
-  font-family: var(--mono);
-  word-break: break-all;
+  font-size: 12.5px;
+  font-weight: 800;
+  transition: color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 
-.kv dd { user-select: all; }
+.round svg { width: 14px; height: 14px; }
+.round:not(:disabled):hover { color: var(--ink); }
+.round:not(:disabled):active { box-shadow: var(--sink-sm); transform: scale(0.95); }
+.round.go { color: var(--accent); }
+.round.go:not(:disabled):hover { box-shadow: var(--raise-sm), 0 0 16px color-mix(in srgb, var(--accent) 30%, transparent); }
+.round.small { width: 32px; height: 32px; }
 
-/* ---------- the two lists ---------- */
-
-.calls { display: grid; margin: 0; padding: 0; list-style: none; }
-
-/* A row is a rule with a name on it. The whole width is the target, because
-   at this width a row is the only thing anyone is trying to hit. */
-.row-head {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-  min-height: 34px;
-  padding: 8px 0;
+.pill {
+  flex: none;
+  height: 28px;
+  padding: 0 12px;
   border: 0;
-  border-bottom: 1px solid var(--line-soft);
-  border-radius: 0;
+  border-radius: 999px;
+  background: var(--base);
+  box-shadow: var(--raise-sm);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: color 0.2s, box-shadow 0.2s;
+}
+
+.pill:not(:disabled):hover { color: var(--ink); }
+.pill:not(:disabled):active { box-shadow: var(--sink-sm); }
+.pill.bad { color: var(--red); }
+.pill.accent { color: var(--accent); }
+.pill.appear { animation: enter 0.3s ease-out both; }
+
+/* The state ring: the one place a running call says what it is doing. */
+
+.ring { flex: none; width: 34px; height: 34px; border-radius: 50%; box-shadow: var(--sink-sm); display: grid; place-items: center; }
+.ring svg { width: 22px; height: 22px; overflow: visible; }
+.ring .arc { fill: none; stroke: none; stroke-width: 5; stroke-linecap: round; transform-origin: 22px 22px; }
+.waiting .ring .arc { stroke: var(--amber); stroke-dasharray: 26 75; animation: spin 1.5s linear infinite; }
+.checking .ring .arc { stroke: var(--ink); stroke-dasharray: 50 51; animation: spin 0.7s linear infinite; }
+.lost .ring .arc { stroke: var(--faint); stroke-dasharray: 3 9; }
+.ring .glyph { fill: none; stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; }
+.complete .ring .glyph { stroke: var(--green); }
+.incomplete .ring .glyph { stroke: var(--red); }
+.changed .ring .glyph { animation: draw 0.5s 0.15s ease-out both; }
+
+/* ---------- history ---------- */
+
+.fold {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
   text-align: left;
 }
 
-.row-head:not(:disabled):hover { border-color: var(--line); color: var(--green); }
-.row-head[aria-expanded="true"] { color: var(--green); border-bottom-color: transparent; }
+.fold.nudge .count { animation: bump 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); color: var(--accent); }
+.chev { display: grid; color: var(--faint); transition: transform 0.35s cubic-bezier(0.3, 1.3, 0.5, 1), color 0.3s; }
+.chev svg { width: 14px; height: 14px; }
+.fold[aria-expanded="true"] .chev { transform: rotate(180deg); color: var(--accent); }
 
-.row-mark {
-  flex: none;
-  width: 9px;
-  color: var(--faint);
-  font-family: var(--mono);
-}
+.collapse { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.4s cubic-bezier(0.3, 1, 0.4, 1); }
+.collapse.open { grid-template-rows: 1fr; }
+.collapse-inner { min-height: 0; overflow: hidden; }
 
-.row-head[aria-expanded="true"] .row-mark { color: var(--green); }
+.well { display: grid; margin: 0; padding: 4px 14px; list-style: none; border-radius: 16px; box-shadow: var(--sink); }
+.well:empty { display: none; }
+.well li + li { border-top: 1px solid var(--lo); }
 
-/* A completed call is done. Scoped to the archive, so a PREPARED row's READY
-   keeps the live green it shares with the button that sends it. */
-#past .row-state.ok { color: var(--green-deep); }
-.row-name { flex: 1; min-width: 0; font-size: 13px; word-break: break-word; }
-.row-state { flex: none; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
-
-/* Everything a call can do, indented under the call it belongs to. */
-.row-drawer {
-  display: grid;
-  gap: 10px;
-  margin: 0 0 10px;
-  padding: 10px 0 14px 12px;
-  border-left: 1px solid var(--line);
-  border-bottom: 1px solid var(--line-soft);
-}
-
-.call-stage { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
-
-.call-id {
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: 10px;
-  word-break: break-all;
-}
-
-/* The checklist is the reason this panel exists. */
-
-.files { display: grid; gap: 5px; margin: 2px 0; padding: 0; list-style: none; }
-
-.files li {
+.past-row {
   display: flex;
-  gap: 8px;
-  align-items: baseline;
-  font-family: var(--mono);
-  font-size: 11px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 11px 0;
+  border: 0;
+  background: none;
+  text-align: left;
 }
 
-.files .tick { flex: none; width: 8px; }
-.files .name { flex: 1; word-break: break-all; }
-.files .size { color: var(--faint); font-variant-numeric: tabular-nums; }
+.past-row .name { flex: 1; min-width: 0; font-weight: 600; font-size: 13px; }
+.past-row .project { flex: none; max-width: 38%; }
+.past-row:hover .name { color: var(--accent); }
 
-.files li.here .tick { color: var(--green); }
-.files li.here .name { color: var(--ink); }
-.files li.away .tick { color: var(--amber); }
-.files li.away .name { color: var(--faint); }
+.pip { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.pip.ok { background: var(--green); }
+.pip.bad { background: var(--red); }
 
-/* Warnings are the one place colour carries meaning on its own. A rule, not a
-   filled panel: it still reads as urgent and costs three lines less. */
-.warn {
-  margin: 0;
-  padding: 0 0 0 10px;
-  border-left: 2px solid var(--amber);
-  color: var(--amber);
-  font-size: 11px;
-  line-height: 1.5;
-}
+.detail { display: grid; gap: 10px; padding: 0 0 12px 18px; }
+.detail.enter { animation: enter 0.3s ease-out both; }
+.detail .tools { padding-left: 0; }
 
-/* ---------- results ---------- */
-
-.result-list {
+.kv {
   display: grid;
-  gap: 4px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
   margin: 0;
-  padding: 0;
-  list-style: none;
   font-size: 11px;
 }
 
-.result-list li { display: flex; gap: 10px; }
-.result-list .label { flex: none; min-width: 62px; color: var(--faint); }
-.result-list .value { font-family: var(--mono); color: var(--muted); word-break: break-all; }
+.kv dt { color: var(--faint); }
+.kv dd { margin: 0; color: var(--muted); font-family: var(--mono); overflow-wrap: anywhere; user-select: all; }
 
 .defects { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 
@@ -339,31 +353,61 @@ button:disabled { cursor: not-allowed; color: var(--faint); border-color: var(--
   line-height: 1.45;
 }
 
-.defects .kind { color: var(--red); font-family: var(--mono); }
-.defects .why { color: var(--muted); }
+.well .defects li + li { border-top: 0; }
+.defects .kind { color: var(--red); font-family: var(--mono); overflow-wrap: anywhere; }
+.defects .why { color: var(--muted); overflow-wrap: anywhere; }
+
+/* ---------- text the page would not take, and things that went wrong ---------- */
 
 .code {
   max-height: 240px;
   margin: 0;
-  padding: 10px;
+  padding: 12px;
   overflow: auto;
-  border: 1px solid var(--line-soft);
-  border-radius: 3px;
+  border-radius: 14px;
+  box-shadow: var(--sink);
   color: var(--muted);
   font-family: var(--mono);
   font-size: 11px;
   line-height: 1.55;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.error {
-  margin: 12px 0 0;
-  padding-left: 10px;
-  border-left: 2px solid var(--red);
-  color: var(--red);
-  font-size: 12px;
+.warn, .error {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  box-shadow: var(--sink-sm);
+  font-size: 11.5px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.warn { color: var(--amber); }
+.error { color: var(--red); }
+
+@keyframes enter { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+@keyframes leave { to { opacity: 0; transform: translateX(26px) scale(0.96); } }
+@keyframes bloom { 40% { transform: scale(1.03); } }
+@keyframes bump { 40% { transform: scale(1.35); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes draw { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--green) 50%, transparent); }
+  50% { box-shadow: 0 0 11px color-mix(in srgb, var(--green) 90%, transparent); }
+}
+
+/* Motion is how a call says it changed, never the only way it says so: every
+   state also has its own colour and its own ring. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 [hidden] { display: none !important; }

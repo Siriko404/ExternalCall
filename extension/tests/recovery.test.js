@@ -10,14 +10,14 @@ import { callCentre } from "../lib/panel.js";
  * several calls are running, because a restart can leave one bound and another
  * not - the old single card treated recovery as a state of the whole panel. */
 test("a call the browser lost is marked, and one it still holds is not", () => {
-  const { now } = callCentre({
+  const { running } = callCentre({
     active: [{ exchange_id: "ex-1" }, { exchange_id: "ex-2" }],
     handoffs: [{ exchangeId: "ex-2", subject: "still bound" }],
   });
 
   assert.deepEqual(
-    now.map((call) => [call.id, call.needsResume]),
-    [["ex-1", true], ["ex-2", false]],
+    running.map((call) => [call.id, call.phase]),
+    [["ex-1", "lost"], ["ex-2", "waiting"]],
   );
 });
 
@@ -112,8 +112,9 @@ test("resume sends the destination, and resolves it the way Go does", async () =
   const panel = await readFile(new URL("../sidepanel.js", import.meta.url), "utf8");
   const worker = await readFile(new URL("../service_worker.js", import.meta.url), "utf8");
 
-  assert.match(panel, /mode: destinationFor\(call\.id\)/);
-  assert.match(panel, /provider: providerFor\(call\.id\)/);
+  const lost = panel.slice(panel.indexOf('if (call.phase === "lost")'));
+  assert.match(lost.slice(0, lost.indexOf("return card;")),
+    /type: "RESUME",\s*exchangeId: call\.id,\s*mode,\s*provider: choice\.agent,/);
   assert.match(worker, /case "RESUME":\s*\n\s*return resumeCall\(message\.exchangeId, message\.mode, message\.provider\);/);
   assert.match(worker, /async function resumeCall\(exchangeId, mode, provider\) \{\s*\n\s*const agent = normalizeProvider\(provider\);/);
   assert.doesNotMatch(
@@ -126,33 +127,53 @@ test("resume sends the destination, and resolves it the way Go does", async () =
 /* What a browser restart destroys is the binding to a conversation, and that
  * cannot be guessed back. An early panel resumed with whatever the shared Go
  * dropdown happened to say, which is how a conductor call was once re-armed
- * against a blank conversation with no warning. Recovery asks, and Resume stays
- * disabled until the operator answers.
+ * against a blank conversation with no warning.
+ *
+ * Go now reads a shared toggle, so this matters more than it did. Recovery
+ * does not read it: a lost call offers two buttons, one per destination, and
+ * pressing one is the answer, given for that call. There is no Resume that
+ * falls back on a remembered default.
  */
 test("recovery refuses to guess the destination a restart destroyed", async () => {
   const panel = await readFile(new URL("../sidepanel.js", import.meta.url), "utf8");
 
-  // Disabled until this call — not the panel, this call — has been answered
-  // for. destinationFor falls back to a remembered default, so `has` is the
-  // question being asked here and not `get`.
-  assert.match(panel, /resume\.disabled = !destinations\.has\(call\.id\)/);
-  assert.ok(
-    panel.indexOf("if (call.needsResume)") < panel.indexOf("resume.disabled"),
-    "the resume path is the one that holds its button",
-  );
+  const start = panel.indexOf('if (call.phase === "lost")');
+  const lost = panel.slice(start, panel.indexOf("return card;", start));
+  assert.ok(start > 0 && lost.length > 0, "the lost-call branch is where this test thinks");
+
+  assert.match(lost, /const resume = \(mode\) =>/);
+  assert.match(lost, /pill\("Resume in a new tab", \(\) => resume\("new"\)/);
+  assert.match(lost, /pill\("Resume in this chat", \(\) => resume\("current"\)/);
+  // The shared destination toggle is never consulted for a lost call.
+  assert.doesNotMatch(lost, /choice\.destination/);
+  assert.equal(panel.match(/type: "RESUME"/g).length, 1, "there is no other way to resume");
 });
 
 
-/* The single shared dropdown was the real hazard in the old panel: two calls
- * running at once read the same value, so the second inherited an answer given
- * about the first. A destination belongs to the call it will be used for. */
-test("a destination is remembered per call, never once for the panel", async () => {
+/* Each call used to carry its own destination picker, because a shared
+ * dropdown hidden in a drawer let a second call inherit an answer given about
+ * the first. That cost a drawer and two selects per send, and it was replaced
+ * on request: the agent and the destination are two toggles that are always on
+ * screen above the list, and the whole panel is tinted by the agent.
+ *
+ * What keeps the old hazard out is when the toggles are read. Go reads them in
+ * its click handler, at the moment of the press, and sends both values with
+ * the call. Nothing is captured when the list is drawn, so what Go sends is
+ * what the toggles showed when it was pressed.
+ */
+test("Go sends where the toggles point at the moment it is pressed", async () => {
   const panel = await readFile(new URL("../sidepanel.js", import.meta.url), "utf8");
 
-  assert.match(panel, /const destinations = new Map\(\)/);
-  assert.match(panel, /destinations\.set\(exchangeId, picker\.value\)/);
-  assert.match(panel, /function destinationFor\(exchangeId\)/);
-  // Every send resolves the destination through the call it belongs to.
-  assert.doesNotMatch(panel, /mode: goMode\.value/);
-  assert.doesNotMatch(panel, /mode: recoveryMode\.value/);
+  const start = panel.indexOf('go.addEventListener("click"');
+  const press = panel.slice(start, panel.indexOf("showLaunchPrompt(handoff);", start));
+  assert.ok(start > 0, "Go has a click handler");
+  assert.match(press, /type: "GO",\s*exchangeId: call\.id,\s*mode: choice\.destination,\s*provider: choice\.agent,/);
+  assert.equal(panel.match(/type: "GO"/g).length, 1);
+
+  // Both toggles are in the page, not in a drawer, and both are remembered.
+  const html = await readFile(new URL("../sidepanel.html", import.meta.url), "utf8");
+  assert.match(html, /id="seg-agent" class="seg" role="radiogroup"/);
+  assert.match(html, /id="seg-dest" class="seg" role="radiogroup"/);
+  assert.match(panel, /chrome\.storage\.local\.set\(\{ agent: value \}\)/);
+  assert.match(panel, /chrome\.storage\.local\.set\(\{ goMode: value \}\)/);
 });

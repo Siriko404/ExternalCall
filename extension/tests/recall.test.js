@@ -54,7 +54,7 @@ test("past calls are inspectable from the panel", async () => {
 
   assert.match(html, /id="past"/);
   // A button, not a list item, so it is reachable by keyboard.
-  assert.match(panel, /head\.className = "row-head"/);
+  assert.match(panel, /h\("button", \{\s*class: "past-row",\s*type: "button",/);
   assert.match(panel, /type: "INSPECT", exchangeId/);
   assert.match(worker, /case "INSPECT":/);
   assert.match(worker, /nativeCommand\("call\.inspect"/);
@@ -83,7 +83,7 @@ test("defects are shown before a correction round is offered", async () => {
   assert.match(panel, /inspect\.defects/);
   assert.ok(
     panel.indexOf("defectList(inspect.defects")
-      < panel.indexOf('accent("Open correction round"'),
+      < panel.indexOf('pill("Open correction round"'),
     "the diagnosis is built before the button that acts on it",
   );
   // The companion caps what it sends to keep inside the 1 MB frame; a capped
@@ -110,19 +110,16 @@ test("a resend says what it is a copy of", async () => {
 });
 
 
-/* Attention order: whatever needs the next click is on top. Calls that need
- * something, then calls that are over — and an empty archive is not a heading
- * with nothing under it. */
-test("calls that need something own the top of the panel", async () => {
+/* An empty list says that it is empty. A heading with nothing under it reads
+ * as a panel that failed to load, and the absence is itself information. */
+test("an empty list says so", async () => {
   const html = await read("sidepanel.html");
   const panel = await read("sidepanel.js");
 
-  const now = html.indexOf('id="now-card"');
-  const past = html.indexOf('id="past-card"');
-  assert.ok(now > 0 && now < past, "in-flight comes before the archive");
-  assert.match(panel, /pastCard\.hidden = rows\.length === 0/);
-  // The top section stays, and says so, because its absence is information.
-  assert.match(panel, /nowEmpty\.hidden = calls\.length > 0/);
+  for (const list of ["ready", "running", "past"]) {
+    assert.match(html, new RegExp(`id="${list}-empty" class="empty" hidden`));
+    assert.match(panel, new RegExp(`el\\("${list}-empty"\\)\\.hidden = (calls|rows)\\.length > 0`));
+  }
 });
 
 
@@ -155,32 +152,39 @@ test("preparing a copy does not send it, and does not touch the original", async
   assert.match(worker, /nativeCommand\("call\.clone"/);
   // The clone lands in the top list as a prepared call, and Go is a separate
   // press. Nothing chains one into the other.
-  const body = panel.slice(panel.indexOf('accent("Prepare a copy"'));
+  const body = panel.slice(panel.indexOf('pill("Prepare a copy"'));
   assert.doesNotMatch(body.slice(0, 400), /type: "GO"/);
 });
 
 
-/* A drawer builder either returns its nodes or appends them itself. The archive
- * builder does the second, because it awaits the companion first — and it is
- * `async`, so it returns a Promise, which is truthy. Appending that writes
- * "[object Promise]" into the drawer.
+/* The history drawer is filled by a function that awaits the companion first.
+ * It is `async`, so what it returns is a Promise, and appending a Promise
+ * writes "[object Promise]" into the drawer - which an earlier panel did.
  *
- * Two things stand between here and that: the caller passes a braced arrow that
- * discards the return, and the appender tests for a Node. The braced arrow is
- * one keystroke from being tidied into an expression arrow, so the Node test is
- * the one that has to hold.
+ * So it appends into the drawer itself, and its result is discarded where it
+ * is called, visibly, with `void`. Nothing may hand that result to the page.
  */
 test("an async drawer builder cannot leak a Promise into the page", async () => {
   const panel = await read("sidepanel.js");
 
-  assert.match(panel, /const built = fill\(drawer\);\s*\n\s*if \(built instanceof Node\)/);
-  assert.doesNotMatch(panel, /if \(built\) \{/);
+  assert.match(panel, /async function fillDetail\(detail, item\)/);
+  assert.match(panel, /^\s*void fillDetail\(detail, item\);$/m);
+  assert.equal(panel.match(/fillDetail\(/g).length, 2, "defined once, called once");
+  assert.doesNotMatch(panel, /append\([^)]*fillDetail\(/);
+  assert.doesNotMatch(panel, /replaceChildren\([^)]*fillDetail\(/);
 });
 
 
 /* The boundary, restated as a test because a redesign is exactly when it would
- * be eroded by accident. */
-test("no panel code sends, attaches, downloads, or finishes on its own", async () => {
+ * be eroded by accident.
+ *
+ * One line of it moved, on request. Done was a button the operator pressed,
+ * "never a timer"; a call now finishes itself when its archive lands. What did
+ * not move is everything a person still decides: what is attached, what is
+ * sent, and what is downloaded. No software here presses a key, clicks a
+ * control on the site, or starts a download.
+ */
+test("no panel code sends, attaches or downloads on its own", async () => {
   const panel = await read("sidepanel.js");
   const worker = await read("service_worker.js");
 
@@ -189,6 +193,18 @@ test("no panel code sends, attaches, downloads, or finishes on its own", async (
     assert.doesNotMatch(source, /\.click\(\)/);
     assert.doesNotMatch(source, /chrome\.downloads\.download/);
   }
-  // Done and Stop are per-call buttons the operator presses, never timers.
-  assert.doesNotMatch(panel, /setTimeout\([^)]*DONE/);
+});
+
+
+/* Finishing is the companion's decision, taken from the archive. The panel has
+ * no Done to press and no way to ask for one; it can only ask the companion to
+ * look in the folder, and the companion finishes nothing that has not landed. */
+test("the panel cannot finish a call; it can only ask the companion to look", async () => {
+  const panel = await read("sidepanel.js");
+  const worker = await read("service_worker.js");
+
+  assert.doesNotMatch(panel, /"DONE"/);
+  assert.match(panel, /type: "COLLECT"/);
+  assert.match(worker, /case "COLLECT":\s*\n(?:\s*\/\/[^\n]*\n)*\s*return collectLanded\(\);/);
+  assert.match(worker, /nativeCommand\("calls\.collect"\)/);
 });

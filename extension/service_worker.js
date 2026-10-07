@@ -6,11 +6,16 @@ import {
 import {
   anyShouldObserveDownload,
   handoffForTab,
+  isOutputsArchiveName,
 } from "./lib/downloads.js";
 import { PROVIDER_IDS, chooseTargetTab, normalizeProvider, providerBaseUrl, providerLabel } from "./lib/target.js";
 import { createHandoffStore } from "./lib/handoffs.js";
+import { createFinishedStore } from "./lib/finished.js";
 
 const handoffStore = createHandoffStore(chrome.storage.session);
+/* Local, not session: a call that finished overnight should still be sitting
+ * in Running, coloured, when the browser is opened again. */
+const finishedStore = createFinishedStore(chrome.storage.local);
 
 
 const NATIVE_HOST = "com.sina.externalcall";
@@ -20,6 +25,11 @@ const NATIVE_HOST = "com.sina.externalcall";
  * composer is a page worth telling the operator about. */
 const COMPOSER_POLL_MS = 500;
 const COMPOSER_ATTEMPTS_NEW_TAB = 20;
+/* The watch on the Downloads folder while the panel is closed. Thirty seconds
+ * is the shortest period Chrome allows an alarm; the browser's own download
+ * event is the fast path and the open panel asks more often than this. */
+const WATCH_ALARM = "externalcall:watch";
+const WATCH_PERIOD_MINUTES = 0.5;
 
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -29,6 +39,16 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onStartup.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  // A restart forgets which call was in which tab, and with it which download
+  // belongs to whom. The folder does not forget, so look there once.
+  collectLanded().catch(console.error);
+});
+
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === WATCH_ALARM) {
+    collectLanded().catch(console.error);
+  }
 });
 
 
@@ -76,6 +96,12 @@ async function handlePanelMessage(message) {
       return stopCall(message.exchangeId);
     case "DONE":
       return finishCall(message.exchangeId);
+    case "COLLECT":
+      // Look in the Downloads folder now, and finish whatever has landed.
+      return collectLanded();
+    case "SHELVE":
+      // Move finished calls out of Running. Nothing on disk changes.
+      return finishedStore.shelve(message.exchangeIds);
     case "REPAIR":
       return openRepairRound(message.exchangeId);
     case "CLONE":
@@ -108,10 +134,11 @@ async function dropHandoff(exchangeId) {
 
 
 async function getStatus() {
-  const [snapshot, stored, handoffs] = await Promise.all([
+  const [snapshot, stored, handoffs, finished] = await Promise.all([
     nativeCommand("status.snapshot"),
     chrome.storage.session.get(["lastReport", "lastHandoff", "lastDownloadFailure"]),
     readHandoffs(),
+    finishedStore.read(),
   ]);
   const { ready, active, progress, recent } = snapshot;
   return {
@@ -125,6 +152,8 @@ async function getStatus() {
     // that tests `if (state.active)`. Absence must be falsy.
     active: Array.isArray(active) && active.length === 0 ? null : active,
     handoffs: Object.values(handoffs),
+    // Finished on their own and not yet moved to History by the operator.
+    finished: Object.values(finished),
     lastReport: stored.lastReport ?? null,
     lastDownloadFailure: stored.lastDownloadFailure ?? null,
     canRepair: Boolean(
@@ -209,6 +238,7 @@ async function beginGo(exchangeId, mode, provider) {
     };
     const saved = await writeHandoff(handoff, { create: true });
     await armTab(tab.id);
+    await watchDownloads(true);
     return saved;
   } catch (error) {
     await dropHandoff(exchangeId);
@@ -304,6 +334,7 @@ async function resumeCall(exchangeId, mode, provider) {
     };
     const saved = await writeHandoff(handoff, { create: true });
     await armTab(tab.id);
+    await watchDownloads(true);
     return saved;
   } catch (error) {
     if (resumedId) await dropHandoff(resumedId);
@@ -465,6 +496,7 @@ async function openRepairRound(exchangeId) {
     try {
       const saved = await writeHandoff(next, { create: true });
       await armTab(tabId);
+      await watchDownloads(true);
       await broadcastStatus(saved);
       return saved;
     } catch (error) {
@@ -503,6 +535,7 @@ async function openRepairRound(exchangeId) {
   };
   const saved = await writeHandoff(updated, { create: true });
   await chrome.storage.session.set({ lastReport: null });
+  await watchDownloads(true);
   await broadcastStatus(saved);
   return saved;
 }
@@ -580,14 +613,97 @@ async function finishCall(exchangeId) {
   }
   const payload = target ? { exchange_id: target } : {};
   const report = await nativeCommand("call.done", payload);
-  // Keep the tab binding so a correction round can reuse the same conversation.
+  await settleFinished(report.exchange_id ?? target, report);
+  return report;
+}
+
+
+/* What the browser side does once a call is over, whichever hand finished it:
+ * the download event below, or the watch on the Downloads folder.
+ *
+ * The tab binding is kept so a correction round can reuse the same
+ * conversation, and the call is recorded as finished-and-not-yet-seen so the
+ * panel keeps it in Running, in its new colour, until the operator moves it.
+ */
+async function settleFinished(exchangeId, report) {
+  if (typeof exchangeId !== "string" || !exchangeId) {
+    return;
+  }
+  const handoff = (await readHandoffs())[exchangeId] ?? null;
+  if (handoff?.armed) {
+    await safeDetach(handoff.tabId);
+  }
   const lastHandoff = handoff
     ? { tabId: handoff.tabId, exchangeId: handoff.exchangeId, provider: handoff.provider }
     : null;
   await chrome.storage.session.set({ lastReport: report, lastHandoff });
-  if (lastHandoff) await chrome.storage.session.set({ ["binding:" + target]: lastHandoff });
-  await dropHandoff(target);
-  return report;
+  if (lastHandoff) await chrome.storage.session.set({ ["binding:" + exchangeId]: lastHandoff });
+  await dropHandoff(exchangeId);
+  await finishedStore.mark(exchangeId, report.status);
+}
+
+
+/* Done, without the button.
+ *
+ * Done used to wait for a person, and the panel held it back until the
+ * expected archive had arrived. The archive arriving was the whole decision,
+ * so it is taken here: this runs only once the companion has filed this call's
+ * own archive, never on a timer and never for a call still waiting.
+ *
+ * A failure here is not a lost call. The archive is already in the response
+ * folder, and the watch on the Downloads folder finishes any call whose
+ * archive is in place, so the next tick tries again.
+ */
+async function finishLanded(exchangeId) {
+  try {
+    await finishCall(exchangeId);
+  } catch (error) {
+    const handoff = (await readHandoffs())[exchangeId];
+    if (handoff) {
+      await writeHandoff({
+        ...handoff,
+        monitoring: true,
+        status: "CHECK_FAILED",
+        message: `The archive landed but could not be checked yet: ${error.message}`,
+      });
+    }
+  }
+  await broadcastStatus(null);
+}
+
+
+/* The watch on the Downloads folder.
+ *
+ * The download event is fast and usually enough, but it only knows about a
+ * call this browser session bound to a tab. A restart loses that; so does a
+ * file saved by another profile, or dropped into the folder by hand. The
+ * companion looks in the folder itself, finishes each call whose archive has
+ * landed there, and says how many are still waiting - which is how the watch
+ * knows when to stop.
+ */
+async function collectLanded() {
+  const result = await nativeCommand("calls.collect");
+  const finished = Array.isArray(result?.finished) ? result.finished : [];
+  for (const item of finished) {
+    await settleFinished(item.exchange_id, { exchange_id: item.exchange_id, status: item.status });
+  }
+  const pending = (result?.waiting?.length ?? 0) + (result?.failed?.length ?? 0);
+  await watchDownloads(pending > 0);
+  if (finished.length) {
+    await broadcastStatus(null);
+  }
+  return result;
+}
+
+
+async function watchDownloads(on) {
+  if (!on) {
+    await chrome.alarms.clear(WATCH_ALARM);
+    return;
+  }
+  if (!await chrome.alarms.get(WATCH_ALARM)) {
+    await chrome.alarms.create(WATCH_ALARM, { periodInMinutes: WATCH_PERIOD_MINUTES });
+  }
 }
 
 
@@ -625,6 +741,11 @@ async function submitCompletedDownload(delta) {
     return;
   }
   if (!anyShouldObserveDownload(handoffs, item)) {
+    // No bound call claims it. If it carries a call's answer name anyway, the
+    // binding is what was lost, not the call: let the folder watch decide.
+    if (isOutputsArchiveName(item.filename)) {
+      await collectLanded();
+    }
     return;
   }
   const result = await nativeCommand("download.completed", {
@@ -638,17 +759,24 @@ async function submitCompletedDownload(delta) {
     endTime: item.endTime,
   });
   const owner = result.exchange_id ? handoffs[result.exchange_id] : null;
-  if (!owner) {
-    return;
+  if (owner) {
+    const updated = {
+      ...owner,
+      observedDownloadIds: [...new Set([...(owner.observedDownloadIds ?? []), item.id])],
+      status: `DOWNLOAD_${result.status}`,
+      message: downloadMessage(result),
+    };
+    const saved = await writeHandoff(updated);
+    if (saved) await broadcastStatus(saved);
   }
-  const updated = {
-    ...owner,
-    observedDownloadIds: [...new Set([...(owner.observedDownloadIds ?? []), item.id])],
-    status: `DOWNLOAD_${result.status}`,
-    message: downloadMessage(result),
-  };
-  const saved = await writeHandoff(updated);
-  if (saved) await broadcastStatus(saved);
+  /* The call's one archive is filed, so the call is over. INVALID counts: the
+   * archive came down under this call's name and is kept as evidence, and
+   * finishing is what reports it as a faulty delivery instead of leaving the
+   * call running on an answer that already arrived. */
+  if (result.exchange_id && result.stored_name
+      && (result.status === "MOVED" || result.status === "INVALID")) {
+    await finishLanded(result.exchange_id);
+  }
 }
 
 

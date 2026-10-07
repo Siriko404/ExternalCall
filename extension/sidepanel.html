@@ -8,48 +8,66 @@
   </head>
   <body>
     <header class="top">
-      <div class="brand">
-        <span class="mark" aria-hidden="true">/</span>
-        <div class="brand-text">
-          <h1>ExternalCall</h1>
-          <p id="companion-line" class="hint">Connecting</p>
-        </div>
-      </div>
+      <h1>ExternalCall</h1>
       <div class="top-right">
-        <button id="reload-button" class="ghost" type="button"
-          title="Reload the extension. Fixes stale downloads not being captured.">Reload</button>
-        <span id="health" class="dot" title="Companion status"></span>
+        <button id="reload-button" class="round small" type="button"
+          title="Reload the extension. Fixes stale downloads not being captured."
+          aria-label="Reload the extension"></button>
+        <span id="health" class="led" role="img" aria-label="Connecting" title="Connecting"></span>
       </div>
     </header>
 
     <main>
-      <!-- Two lists and nothing else. Calls that need something, then calls
-           that are over. Every row opens where it sits. -->
-      <section class="card" id="now-card">
-        <div class="card-head">
-          <h2>In flight</h2>
-          <span id="now-count" class="pill"></span>
+      <!-- Three lists, in the order they are worked through: calls to send,
+           calls that are out, calls that are over. One line per call. -->
+      <section class="sec" aria-labelledby="ready-title">
+        <div class="sec-head">
+          <h2 class="sec-title" id="ready-title">Ready</h2>
+          <span id="ready-count" class="count" aria-label="calls ready">0</span>
         </div>
-        <ul id="now" class="calls"></ul>
-        <p id="now-empty" class="hint" hidden>No call is prepared or running.</p>
+        <div class="sendbar">
+          <div id="seg-agent" class="seg" role="radiogroup" aria-label="Which agent to send calls to"></div>
+          <div id="seg-dest" class="seg" role="radiogroup" aria-label="Where calls are sent"></div>
+        </div>
+        <ul id="ready" class="cards"></ul>
+        <p id="ready-empty" class="empty" hidden>Nothing to send.</p>
       </section>
 
-      <section class="card" id="past-card" hidden>
-        <div class="card-head">
-          <h2>Previous</h2>
-          <span id="past-count" class="pill"></span>
+      <section class="sec" aria-labelledby="running-title">
+        <div class="sec-head">
+          <h2 class="sec-title" id="running-title">Running</h2>
+          <span id="running-count" class="count" aria-label="calls running">0</span>
+          <span class="spacer"></span>
+          <button id="shelve-all" class="pill" type="button" hidden>Move all to history</button>
         </div>
-        <ul id="past" class="calls"></ul>
+        <ul id="running" class="cards"></ul>
+        <p id="running-empty" class="empty" hidden>Nothing is running.</p>
+      </section>
+
+      <section class="sec" aria-label="History">
+        <button id="history-toggle" class="fold" type="button" aria-expanded="false" aria-controls="history-wrap">
+          <span class="sec-title">History</span>
+          <span id="history-count" class="count" aria-label="past calls">0</span>
+          <span class="spacer"></span>
+          <span id="history-chevron" class="chev" aria-hidden="true"></span>
+        </button>
+        <div id="history-wrap" class="collapse" inert>
+          <div class="collapse-inner">
+            <ul id="past" class="well"></ul>
+            <p id="past-empty" class="empty" hidden>No call has finished yet.</p>
+          </div>
+        </div>
       </section>
 
       <!-- Text the extension has that the page would not take: a correction
            round, or a launch line that could not be typed. -->
-      <section class="card" id="prompt-card" hidden>
-        <div class="card-head">
-          <h2>Prompt to send</h2>
-          <button id="copy-prompt" class="ghost" type="button">Copy</button>
+      <section class="sec" id="prompt-card" hidden>
+        <div class="sec-head">
+          <h2 class="sec-title">Prompt to send</h2>
+          <span class="spacer"></span>
+          <button id="copy-prompt" class="pill" type="button">Copy</button>
         </div>
-        <p class="hint">Review it in the conversation, then click Send.</p>
+        <p class="hint">Paste it into the conversation, review it, then click Send.</p>
         <pre id="prompt-text" class="code"></pre>
       </section>
 

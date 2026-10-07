@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   anyShouldObserveDownload,
   handoffForTab,
+  isOutputsArchiveName,
 } from "../lib/downloads.js";
 
 
@@ -84,14 +85,41 @@ test("a file chooser is matched to the call bound to that tab", () => {
 });
 
 
-test("the side panel drives Done and Stop per exchange", async () => {
+/* Several calls run at once, so nothing that ends a call may act on "the"
+ * call. Stop is a button and names its exchange; finishing is automatic and
+ * names the exchange whose archive was filed. */
+test("stopping and finishing each name one exchange", async () => {
   const panel = await readFile(new URL("../sidepanel.js", import.meta.url), "utf8");
   const worker = await readFile(new URL("../service_worker.js", import.meta.url), "utf8");
 
-  // Matched loosely across lines: what matters is that both commands carry an
+  // Matched loosely across lines: what matters is that the command carries an
   // exchange id, not how the call is wrapped.
-  assert.match(panel, /"DONE",[\s\S]{0,40}exchangeId/);
   assert.match(panel, /"STOP",[\s\S]{0,40}exchangeId/);
+  assert.match(worker, /await finishLanded\(result\.exchange_id\);/);
   assert.match(worker, /nativeCommand\("status\.snapshot"\)/);
   assert.match(worker, /exchange_id: exchangeId/);
+});
+
+
+/* After a browser restart no call is bound to a tab, so a download belongs to
+ * nobody as far as the extension can tell. One carrying a generated answer
+ * name is still some call's answer, and is handed to the folder watch. */
+test("a generated answer name is recognised, with or without a project", () => {
+  for (const path of [
+    "/home/u/Downloads/dalio_ec_6db008f5624c_outputs.zip",
+    "/home/u/Downloads/ec_6db008f5624c_outputs.zip",
+    "C:\\Users\\u\\Downloads\\my-proj_2_ec_6db008f5624c_outputs (1).zip",
+  ]) {
+    assert.equal(isOutputsArchiveName(path), true, path);
+  }
+  for (const path of [
+    "/home/u/Downloads/holiday.zip",
+    "/home/u/Downloads/dalio_audit_g1_inputs.zip",
+    "/home/u/Downloads/dalio_ec_6db008f5624c_outputs.zip.crdownload",
+    "/home/u/Downloads/dalio_ec_6db008f5624c_response.json",
+    "/home/u/Downloads/ec_short_outputs.zip",
+    undefined,
+  ]) {
+    assert.equal(isOutputsArchiveName(path), false, String(path));
+  }
 });
