@@ -1,7 +1,7 @@
 {
   "name": "excall",
   "displayName": "ExternalCall",
-  "description": "Clarify, compile and manage bounded operator-controlled web exchanges.",
+  "description": "Clarify and prepare bounded operator-controlled web exchanges, and review what comes back.",
   "version": "2.0.0",
   "skills": "./skills"
 }

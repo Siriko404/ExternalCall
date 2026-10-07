@@ -6,7 +6,8 @@ release; their source remains in Git history.
 
 ## Changes
 
-- Two entry skills: prep and manage. A short brief precedes each package;
+- One entry skill: prep. The manage skill was removed later and its guidance
+  moved into the operating reference. A short brief precedes each package;
   questions address unresolved scope or acceptance decisions.
 - One job definition generates the frozen evidence inventory, request, response
   schema, prompt, attempt names and packaging helper.

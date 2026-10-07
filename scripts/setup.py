@@ -50,7 +50,9 @@ How to use it, in full:
 
   /excall:prep   describe the task; it writes the request, freezes the files
                   and hands you an exchange to launch
-  /excall:manage status, results, recovery and correction
+
+  It is the only command. For status, results, recovery and correction,
+  ask the agent; it follows skill/excall/references/OPERATING_CORE.md.
 
   In the side panel: Go -> click the site's own Attach files -> check what
   attached -> Send -> download the one archive. The call finishes itself when
@@ -324,7 +326,7 @@ def main(argv: list[str]) -> int:
         f"""
 === One step left ===
 
-Restart Claude Code. Slash commands register at startup, so /excall:* appears
+Restart Claude Code. Slash commands register at startup, so /excall:prep appears
 in the next session, not this one.
 
 Use /excall:prep for a small smoke-test job and record the actual browser

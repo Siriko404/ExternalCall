@@ -7,7 +7,7 @@
     {
       "name": "excall",
       "source": "./",
-      "description": "Operate ExternalCall: install and smoke-test it, prepare one bounded call, and run every other action."
+      "description": "Operate ExternalCall through one command: prepare one bounded call, then check and recover it."
     }
   ]
 }

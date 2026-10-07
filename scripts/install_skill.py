@@ -1,4 +1,4 @@
-"""Register the externalcall skills with Claude Code, without typing /plugin.
+"""Register the externalcall skill with Claude Code, without typing /plugin.
 
 `/plugin marketplace add` followed by `/plugin install` writes exactly two keys
 into ~/.claude/settings.json: the marketplace under `extraKnownMarketplaces`,
@@ -6,9 +6,9 @@ and `excall@excall-local` under `enabledPlugins`. This writes the same two, so
 an agent can install the skills itself instead of handing the operator commands
 to paste.
 
-The skills are invoked as /excall:prep and /excall:manage. They were /xcall:*
-and, before that, /webcall:*; an install retires both older registrations, so
-the same skills are never offered under two prefixes at once.
+The one skill is invoked as /excall:prep. It was /xcall:* and, before that,
+/webcall:*; an install retires both older registrations, so the same skill is
+never offered under two prefixes at once.
 
 Everything else in settings.json is preserved. The previous file is copied to
 settings.json.bak-<timestamp> first, and nothing is written when the file
@@ -99,7 +99,7 @@ def main(argv: list[str]) -> int:
     os.replace(staging, target)
 
     print(f"registered {PLUGIN} -> {source}")
-    print("Restart Claude Code for /excall:prep and /excall:manage.")
+    print("Restart Claude Code for /excall:prep.")
     return 0
 
 

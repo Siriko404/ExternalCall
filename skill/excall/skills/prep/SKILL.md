@@ -1,6 +1,6 @@
 ---
 name: prep
-description: Keyword excall. Clarify and prepare one bounded external AI job for ChatGPT, Claude or Grok Web, with explicit scope, deliverables and acceptance criteria. Use when the user asks to send work to an external web model.
+description: Keyword excall. Clarify and prepare one bounded external AI job for ChatGPT, Claude or Grok Web, with explicit scope, deliverables and acceptance criteria. Use when the user asks to send work to an external web model, or asks for the status or results of an existing external call.
 disable-model-invocation: true
 ---
 
@@ -37,7 +37,12 @@ focused operating reference only for lifecycle commands or recovery.
    outputs ZIP. The call finishes itself when that ZIP lands in the downloads
    folder. Never send or download for them.
 
-For status/results use `/excall:manage`. For setup use `scripts/setup.py`;
-for update use `scripts/update.py`. Never upload internal calls/state storage or
+After preparation, status, results, waiting, resending, correction and recovery
+need no other command: follow the [operating reference](../../references/OPERATING_CORE.md).
+Read a returned result against JOB.json and report transport/schema validity,
+responder completion and semantic acceptance separately.
+
+For setup use `scripts/setup.py`; for update use `scripts/update.py`.
+Never upload internal calls/state storage or
 recognized credentials. Export an explicit sanitized source for approved reuse.
 Do not claim tests, complete work or semantic acceptance from schema/hash success.

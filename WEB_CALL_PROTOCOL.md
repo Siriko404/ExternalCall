@@ -1,6 +1,6 @@
 # ExternalCall contract
 
-System root: the directory containing this file. The skills are the operating
+System root: the directory containing this file. The prep skill is the operating
 surface; this file defines the contract and recovery facts.
 
 ## Job preparation

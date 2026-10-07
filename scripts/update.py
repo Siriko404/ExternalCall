@@ -44,7 +44,7 @@ SURFACES = {
     "companion": ("the companion and native host", None),
     "cmd": ("the native-host launcher", None),
     "extension": ("the Chrome extension", "Reload it in chrome://extensions."),
-    "skill": ("the Claude Code skills", "Restart Claude Code: it reads them from this checkout, but only at startup."),
+    "skill": ("the Claude Code skill", "Restart Claude Code: it reads it from this checkout, but only at startup."),
     "scripts": ("the installer", "Re-run `python scripts/setup.py`."),
 }
 

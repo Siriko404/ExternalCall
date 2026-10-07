@@ -27,8 +27,9 @@ invocation configuration; Claude's invocation flag is not a portable guarantee.
 ## Use
 
 - `/excall:prep`: clarify purpose, scope and acceptance; show a short brief;
-  prepare a frozen package from one job definition.
-- `/excall:manage`: status, results, resume, stop, correction and recovery.
+  prepare a frozen package from one job definition. It is the only command.
+- Status, results, resume, stop, correction and recovery need no command: ask
+  the terminal agent, which follows `skill/excall/references/OPERATING_CORE.md`.
 
 A precise instruction needs no repeated interview or ceremonial approval. Missing
 material decisions must be settled. Every package gets a short job brief. Every
@@ -51,7 +52,7 @@ launchers and `prepare --spec` remain compatibility entry points for old exchang
 Stop or finish active calls before changing the native-host installation. Keep the
 old call/state folders as evidence. The new host is `com.sina.externalcall` and
 plugin is `excall@excall-local`; setup retires the older `xcall` and `webcall`
-entries, so the skills are `/excall:*` after Claude Code restarts.
+entries, so the skill is `/excall:prep` after Claude Code restarts.
 Historical requests and responses are not renamed. The GitHub repository URL
 remains unchanged until a separate repository rename is requested.
 

@@ -41,7 +41,7 @@ class InstallSkillTests(unittest.TestCase):
     def read(self):
         return json.loads(self.settings.read_text(encoding="utf-8"))
 
-    def test_the_skills_are_invoked_with_the_excall_prefix(self):
+    def test_the_one_skill_is_prep_under_the_excall_prefix(self):
         """The slash prefix is the plugin's name, so the name is the contract."""
         plugin = json.loads((self.source / ".claude-plugin" / "plugin.json").read_text())
         market = json.loads((self.source / ".claude-plugin" / "marketplace.json").read_text())
@@ -51,7 +51,7 @@ class InstallSkillTests(unittest.TestCase):
         self.assertEqual(market["plugins"][0]["name"], "excall")
         self.assertEqual(install_skill.PLUGIN, f'{plugin["name"]}@{market["name"]}')
         self.assertEqual(sorted(path.parent.name for path in self.source.glob("skills/*/SKILL.md")),
-                         ["manage", "prep"])
+                         ["prep"])
 
     def test_a_first_install_registers_the_plugin_from_this_checkout(self):
         code, _ = self.run_installer()

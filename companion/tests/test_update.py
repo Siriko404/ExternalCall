@@ -118,7 +118,7 @@ class UpdateTests(unittest.TestCase):
 
     def test_an_update_fast_forwards_and_names_what_the_operator_must_do(self):
         self.publish("extension/sidepanel.js", "new panel\n")
-        self.publish("skill/excall/skills/manage/SKILL.md", "new menu\n")
+        self.publish("skill/excall/skills/prep/SKILL.md", "new menu\n")
 
         result = update(self.root)
 
@@ -129,7 +129,7 @@ class UpdateTests(unittest.TestCase):
             "new panel\n",
         )
         self.assertIn("the Chrome extension", result["changed"])
-        self.assertIn("the Claude Code skills", result["changed"])
+        self.assertIn("the Claude Code skill", result["changed"])
         # Chrome cannot be told to reload an unpacked extension and Claude Code
         # registers skills at startup. Both are human steps, and an update that
         # does not say so leaves the operator running the old code.
