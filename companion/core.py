@@ -36,6 +36,11 @@ CLONEABLE_STATES = {"COMPLETE", "INCOMPLETE", "STOPPED"}
 # has a hard one-megabyte ceiling and overflowing it fails the whole command:
 # these rows are a few hundred bytes each, so this is roughly a twentieth of it.
 _RECENT_LIMIT = 200
+# A project name leads every name an operator handles: the exchange folder, the
+# archive that goes up and the archive that comes back. Several projects send
+# calls through one panel and one Downloads folder, and without it the names
+# say which attempt a file is and nothing about whose.
+PROJECT_NAME = r"[a-z0-9][a-z0-9_-]{0,31}"
 _RESERVED_NAMES = {
     "CON",
     "PRN",
@@ -85,9 +90,17 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime, *, _reexport=F
     token = spec.get("exchange_token")
     if token is not None and not re.fullmatch(r"[0-9a-f]{12}", token):
         raise ValueError("exchange_token must be 12 hexadecimal characters")
-    exchange_id = f"{timestamp}_{slug}" + (f"_{token}" if token else "")
+    project = spec.get("project")
+    if project is not None and (
+        not isinstance(project, str) or not re.fullmatch(PROJECT_NAME, project)
+    ):
+        raise ValueError(
+            "project must be a short lowercase name: letters, digits, - or _"
+        )
+    lead = f"{project}_" if project else ""
+    exchange_id = f"{timestamp}_{lead}{slug}" + (f"_{token}" if token else "")
     prompt_name = PROMPT_IN_BUNDLE_NAME
-    bundle_name = f"{slug}_inputs.zip"
+    bundle_name = f"{lead}{slug}_inputs.zip"
     calls_dir = root / "calls"
     state_dir = root / "state"
     destination = calls_dir / exchange_id
@@ -179,6 +192,7 @@ def prepare_call(root: Path, spec: dict[str, Any], now: datetime, *, _reexport=F
             "exchange_id": exchange_id,
             "request_id": request_id,
             "subject": subject,
+            "project": project,
             "created_at": now.astimezone(timezone.utc).isoformat(),
             "state": "PREPARED",
             # Set only by clone_call. Two exchanges with the same subject differ
@@ -288,6 +302,7 @@ def clone_call(root: Path, exchange_id: str, now: datetime) -> dict[str, Any]:
         root,
         {
             "subject": manifest.get("subject", ""),
+            "project": manifest.get("project"),
             "request_id": manifest.get("request_id", ""),
             "expected_main_json": manifest.get("expected_main_json", ""),
             "expected_artifacts": manifest.get("expected_artifacts", []),
@@ -429,6 +444,7 @@ def list_recent_calls(root: Path, limit: int = _RECENT_LIMIT) -> list[dict[str, 
             {
                 "exchange_id": manifest.get("exchange_id"),
                 "subject": manifest.get("subject"),
+                "project": manifest.get("project"),
                 "request_id": manifest.get("request_id"),
                 "state": manifest.get("state"),
                 "created_at": manifest.get("created_at"),
@@ -487,6 +503,7 @@ def call_progress(root: Path) -> list[dict[str, Any]]:
             {
                 "exchange_id": exchange_id,
                 "subject": manifest.get("subject"),
+                "project": manifest.get("project"),
                 "request_id": manifest.get("request_id"),
                 "started_at": active.get("started_at"),
                 "tab_id": active.get("tab_id"),
@@ -557,6 +574,7 @@ def inspect_call(root: Path, exchange_id: str) -> dict[str, Any]:
     return {
         "exchange_id": manifest.get("exchange_id"),
         "subject": manifest.get("subject"),
+        "project": manifest.get("project"),
         "request_id": manifest.get("request_id"),
         "state": state,
         "created_at": manifest.get("created_at"),

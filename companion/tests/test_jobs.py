@@ -26,6 +26,7 @@ class JobTests(unittest.TestCase):
         self.downloads = self.base / "Downloads"
         self.downloads.mkdir()
         self.job = {
+            "project": "fixture",
             "title": "Review fixture", "purpose": "Choose the next change.",
             "task": "Evaluate the supplied evidence.", "scope": {"in": ["Review"], "out": ["Edit"]},
             "constraints": ["No product edits."], "sources": [], "stop_condition": "Report limitations.",
@@ -96,6 +97,62 @@ class JobTests(unittest.TestCase):
         self.assertEqual(report["response_status"], "PARTIAL")
         self.assertFalse(report["work_complete"])
         self.assertTrue(report["schema_valid"])
+
+    def test_the_project_leads_every_name_the_operator_handles(self):
+        """Several projects share one panel and one Downloads folder. The
+        attempt id says which try a file is; only the project says whose."""
+        manifest, exchange = self.prepare()
+        attempt = manifest["request_id"]
+        self.assertRegex(attempt, r"^ec_[0-9a-f]{12}$")
+        self.assertEqual(manifest["project"], "fixture")
+        self.assertRegex(manifest["exchange_id"], r"^[0-9_-]+_fixture_review_fixture_[0-9a-f]{12}$")
+        self.assertEqual(manifest["attach_files"], ["fixture_review_fixture_inputs.zip"])
+        self.assertEqual(manifest["expected_artifacts"], [f"fixture_{attempt}_outputs.zip"])
+        self.assertEqual(manifest["expected_main_json"], f"fixture_{attempt}_response.json")
+        self.assertIn("Project: fixture\n", manifest["job_brief"])
+        request = json.loads((exchange / "request" / "WEB_REVIEW_REQUEST.json").read_text())
+        self.assertEqual(request["job"]["project"], "fixture")
+        self.assertEqual(request["expected_archive"], f"fixture_{attempt}_outputs.zip")
+        # The names are what the responder is told to return and what comes back.
+        report = self.deliver(manifest, exchange)
+        self.assertEqual(report["status"], "COMPLETE")
+        self.assertTrue((exchange / "response" / f"fixture_{attempt}_outputs.zip").is_file())
+
+    def test_a_job_without_a_usable_project_is_refused(self):
+        job = copy.deepcopy(self.job)
+        del job["project"]
+        with self.assertRaisesRegex(ValueError, "needs a project"):
+            self.prepare(job)
+        with self.assertRaisesRegex(ValueError, "needs a project"):
+            job_brief(job)
+        for name in ("Fixture", "my project", "../up", "", "a" * 33, "-lead", 7):
+            job = copy.deepcopy(self.job)
+            job["project"] = name
+            with self.assertRaises(ValueError, msg=repr(name)):
+                self.prepare(job)
+        self.assertFalse((self.root / "calls").exists())
+
+    def test_a_call_frozen_before_projects_is_still_resent_and_corrected(self):
+        """Exchanges prepared before jobs carried a project have none in their
+        frozen job. Their names stay as they were, and they can still be sent
+        again or corrected: requiring the field there would strand them."""
+        job = copy.deepcopy(self.job)
+        del job["project"]
+        old = prepare_job(self.root, job, datetime.now(timezone.utc), frozen=True)
+        exchange = self.root / "calls" / old["exchange_id"]
+        frozen = json.loads((exchange / "request" / "WEB_REVIEW_REQUEST.json").read_text())
+        self.assertNotIn("project", frozen["job"])
+        self.assertIsNone(old["project"])
+        self.assertEqual(old["expected_artifacts"], [f'{old["request_id"]}_outputs.zip'])
+        self.assertEqual(old["attach_files"], ["review_fixture_inputs.zip"])
+
+        self.deliver(old, exchange, results={})
+        clone = clone_call(self.root, old["exchange_id"], datetime.now(timezone.utc))
+        self.assertIsNone(clone["project"])
+        self.assertEqual(clone["expected_artifacts"], [f'{clone["request_id"]}_outputs.zip'])
+        self.assertEqual(clone["job_revision"], old["job_revision"])
+        correction = open_repair_round(self.root, old["exchange_id"], 43, [])
+        self.assertTrue(correction["new_attempt"])
 
     def test_scope_blocker_prevents_any_package(self):
         job = copy.deepcopy(self.job)

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from companion.archives import safe_path
 from companion.archives import MAX_MEMBER_BYTES, MAX_EXPANDED_BYTES, MAX_ARCHIVE_BYTES, MAX_MAIN_BYTES
-from companion.core import _check_export_source, _copy_verified, _safe_name, _sha256, _read_json_object, prepare_call, request_paths
+from companion.core import PROJECT_NAME, _check_export_source, _copy_verified, _safe_name, _sha256, _read_json_object, prepare_call, request_paths
 from companion.schema import errors, validator
 
 TEXT = {"type": "string", "minLength": 1, "maxLength": 8000}
@@ -18,9 +18,10 @@ STRINGS = {"type": "array", "items": TEXT, "maxItems": 100}
 JOB_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object", "additionalProperties": False,
-    "required": ["title", "purpose", "task", "scope", "constraints", "requirements",
+    "required": ["project", "title", "purpose", "task", "scope", "constraints", "requirements",
                  "deliverables", "sources", "stop_condition"],
     "properties": {
+        "project": {"type": "string", "pattern": f"^{PROJECT_NAME}$"},
         "title": {**TEXT, "maxLength": 160}, "purpose": TEXT, "task": TEXT,
         "scope": {"type": "object", "additionalProperties": False,
                   "required": ["in", "out"], "properties": {"in": STRINGS, "out": STRINGS}},
@@ -62,10 +63,19 @@ JOB_SCHEMA = {
 }
 
 
-def check_job(job: dict) -> dict:
+def check_job(job: dict, *, frozen: bool = False) -> dict:
     if len(_bytes(job)) > MAX_MAIN_BYTES:
         raise ValueError("job metadata exceeds 2 MiB; move evidence into source files")
-    problems = errors(JOB_SCHEMA, job)
+    schema = JOB_SCHEMA
+    if "project" not in job:
+        if not frozen:
+            raise ValueError(
+                "job needs a project: the short lowercase name (letters, digits, - or _) "
+                "of the project it belongs to, which leads every package name"
+            )
+        # A job frozen before jobs carried a project is sent again as it was.
+        schema = {**JOB_SCHEMA, "required": [key for key in JOB_SCHEMA["required"] if key != "project"]}
+    problems = errors(schema, job)
     if problems:
         raise ValueError("job is not settled: " + "; ".join(problems))
     ids = [item["id"] for item in job["requirements"]]
@@ -88,8 +98,8 @@ def check_job(job: dict) -> dict:
     return job
 
 
-def job_brief(job: dict) -> str:
-    check_job(job)
+def job_brief(job: dict, *, frozen: bool = False) -> str:
+    check_job(job, frozen=frozen)
     short = lambda text: text[:240] + ("…" if len(text) > 240 else "")
     scope = short("; ".join(job["scope"]["in"]))
     outputs = ", ".join(item["filename"] for item in job["deliverables"])
@@ -98,7 +108,8 @@ def job_brief(job: dict) -> str:
     )
     if len(job["requirements"]) > 5:
         criteria += f'; {len(job["requirements"]) - 5} more in JOB.json'
-    return (f'{job["title"]}\nPurpose: {short(job["purpose"])}\nTask: {short(job["task"])}\n'
+    project = f'Project: {job["project"]}\n' if "project" in job else ""
+    return (f'{job["title"]}\n{project}Purpose: {short(job["purpose"])}\nTask: {short(job["task"])}\n'
             f'Scope: {scope}\nOutside scope: {short("; ".join(job["scope"]["out"])) or "None specified"}\n'
             f'Constraints: {short("; ".join(job["constraints"])) or "None specified"}\n'
             f'Outputs: {short(outputs)}\nDone: {criteria}\nStop: {short(job["stop_condition"])}')
@@ -162,12 +173,16 @@ def response_schema(job: dict, attempt: str, revision: str, archive: str) -> dic
     }
 
 
-def prepare_job(root: Path, job: dict, now: datetime, *, cloned_from=None, repair_context=None) -> dict:
-    check_job(job)
+def prepare_job(root: Path, job: dict, now: datetime, *, cloned_from=None, repair_context=None,
+                frozen: bool = False) -> dict:
+    check_job(job, frozen=frozen)
     root = root.resolve()
     token = uuid.uuid4().hex[:12]
     attempt = "ec_" + token
-    main, archive = f"{attempt}_response.json", f"{attempt}_outputs.zip"
+    # The attempt stays the routing identity. The project leads the two names
+    # the operator sees in a Downloads folder shared by every project.
+    lead = f'{job["project"]}_' if "project" in job else ""
+    main, archive = f"{lead}{attempt}_response.json", f"{lead}{attempt}_outputs.zip"
     with tempfile.TemporaryDirectory(prefix="externalcall-job-") as scratch:
         directory = Path(scratch)
         public = json.loads(json.dumps(job))
@@ -223,15 +238,16 @@ def prepare_job(root: Path, job: dict, now: datetime, *, cloned_from=None, repai
             prompt += ("This is a mechanical correction of the same job. Read REPAIR_CONTEXT.json.\n"
                        "Preserve valid artifact bytes; correct the reported defects and regenerate metadata/ZIP.\n")
         manifest = prepare_call(root, {
-            "subject": job["title"], "request_id": attempt, "expected_main_json": main,
+            "subject": job["title"], "project": job.get("project"),
+            "request_id": attempt, "expected_main_json": main,
             "expected_artifacts": [archive], "prompt_text": prompt, "input_files": inputs,
             "contract_version": 2, "job_revision": revision, "exchange_token": token,
             "expected_deliverables": [safe_path(x["filename"]) for x in job["deliverables"]],
-            "job_brief": job_brief(job),
+            "job_brief": job_brief(job, frozen=frozen),
             "cloned_from": cloned_from,
             "repair_round": repair_context.get("round", 0) if repair_context else 0,
         }, now)
-    manifest["job_brief"] = job_brief(job)
+    manifest["job_brief"] = job_brief(job, frozen=frozen)
     return manifest
 
 
@@ -250,4 +266,5 @@ def reprepare_job(root: Path, exchange: Path, now: datetime, *, repair_context=N
             destination = Path(scratch) / source["filename"]
             _copy_verified(Path(source["path"]), destination)
             source["path"] = str(destination)
-        return prepare_job(root, job, now, cloned_from=exchange.name, repair_context=repair_context)
+        return prepare_job(root, job, now, cloned_from=exchange.name, repair_context=repair_context,
+                           frozen=True)

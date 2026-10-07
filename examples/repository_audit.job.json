@@ -1,4 +1,5 @@
 {
+  "project": "externalcall",
   "title": "Repository optimization audit",
   "purpose": "Decide which simplifications to implement next.",
   "task": "Assess the supplied repository evidence and rank concrete simplifications.",

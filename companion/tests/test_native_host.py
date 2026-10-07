@@ -92,6 +92,7 @@ class NativeHostTests(unittest.TestCase):
                 "download.completed",
                 "download.failure.record",
                 "call.done",
+                "calls.collect",
                 "call.repair",
                 "call.stop",
             },

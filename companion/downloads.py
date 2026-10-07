@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import zipfile
 import uuid
 from datetime import datetime
@@ -25,6 +26,12 @@ from companion.core import (
     load_active_calls,
 )
 from companion.lock import exchange_lock, state_lock
+
+# How long a file must have sat untouched in the Downloads folder before it is
+# taken as landed. Chrome renames a finished download into place, but a file
+# copied in by hand, or written by another browser, grows where it stands, and
+# a half-written archive would be validated and closed as a faulty delivery.
+SETTLE_SECONDS = 2.0
 
 
 def handle_completed_download(root: Path, download: dict[str, Any]) -> dict[str, Any]:
@@ -351,6 +358,78 @@ def finish_call(root: Path, exchange_id: str | None = None, downloads_dir: Path 
             _write_json_atomic(root / "state" / "LAST_RESULT.json", {"exchange_id": exchange_id, "report": report})
             _active_path_for(root, exchange_id).unlink(missing_ok=True)
     return report
+
+
+def finish_landed_calls(
+    root: Path,
+    downloads_dir: Path,
+    *,
+    settle_seconds: float = SETTLE_SECONDS,
+    clock=None,
+) -> dict[str, Any]:
+    """Finish every running call whose outputs archive has landed.
+
+    Done used to be a button, held back until the archive was in. The archive
+    being in was the whole decision, so the companion now makes it: a call is
+    finished the moment its one expected archive is either filed in its
+    response folder or sitting, settled, in the Downloads folder.
+
+    A call whose archive has not landed is left exactly as it is. Finishing it
+    would validate nothing and close a running call as a failed delivery.
+
+    Only calls with generated names are collected from the folder. Their
+    archive name carries the attempt, so a file under that name can only be
+    this attempt's answer; an older exchange chose its own names and may share
+    one with a file left over from an earlier call.
+    """
+    root = Path(root).resolve()
+    downloads_dir = Path(downloads_dir)
+    clock = clock or time.time
+    finished: list[dict[str, Any]] = []
+    waiting: list[str] = []
+    failed: list[dict[str, Any]] = []
+    for record in load_active_calls(root):
+        exchange_id = str(record.get("exchange_id", ""))
+        try:
+            exchange = _exchange_dir(root, exchange_id)
+            manifest = _read_json_object(
+                exchange / "EXCHANGE_MANIFEST.json", "EXCHANGE_MANIFEST"
+            )
+        except (FileNotFoundError, ValueError):
+            continue
+        if not _has_landed(exchange, manifest, downloads_dir, settle_seconds, clock):
+            waiting.append(exchange_id)
+            continue
+        try:
+            report = finish_call(root, exchange_id, downloads_dir)
+        except (RuntimeError, ValueError, OSError) as error:
+            failed.append({"exchange_id": exchange_id, "error": str(error)})
+            continue
+        finished.append({"exchange_id": exchange_id, "status": report["status"]})
+    return {"finished": finished, "waiting": waiting, "failed": failed}
+
+
+def _has_landed(
+    exchange: Path,
+    manifest: dict[str, Any],
+    downloads_dir: Path,
+    settle_seconds: float,
+    clock,
+) -> bool:
+    if manifest.get("contract_version", 1) < 2:
+        return False
+    declared = manifest.get("expected_artifacts")
+    if not isinstance(declared, list) or len(declared) != 1:
+        return False
+    archive = _safe_name(str(declared[0]), "expected artifact filename")
+    if (exchange / "response" / archive).is_file():
+        return True
+    if not downloads_dir.is_dir():
+        return False
+    candidate = _newest_download_match(
+        downloads_dir, archive, _download_floor(manifest.get("created_at"))
+    )
+    return candidate is not None and clock() - candidate.stat().st_mtime >= settle_seconds
 
 
 def _accept_outputs_archive(

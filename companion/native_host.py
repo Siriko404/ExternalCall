@@ -27,6 +27,7 @@ from companion.core import (
 from companion.downloads import (
     default_downloads_dir,
     finish_call,
+    finish_landed_calls,
     handle_completed_download,
 )
 from companion.repair import open_repair_round
@@ -50,6 +51,7 @@ ALLOWED_COMMANDS = {
     "download.completed",
     "download.failure.record",
     "call.done",
+    "calls.collect",
     "call.repair",
     "call.stop",
 }
@@ -212,6 +214,12 @@ def dispatch(root: Path, message: dict[str, Any]) -> dict[str, Any] | list[Any] 
         if report.get("exchange_id") != exchange_id:
             raise ValueError("validation report belongs to another exchange")
         return report
+    if command == "calls.collect":
+        # The watch on the Downloads folder. It finishes the calls whose
+        # archive has landed and reports the ones still waiting, so the
+        # extension knows whether there is anything left to watch for.
+        _require_keys(payload, set())
+        return finish_landed_calls(root, default_downloads_dir())
     if command == "call.repair":
         _require_keys(payload, {"exchange_id", "tab_id", "download_baseline"})
         return open_repair_round(
