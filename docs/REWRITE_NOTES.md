@@ -1,7 +1,7 @@
 # ExternalCall rewrite review
 
 The active product is a bounded job-to-browser-to-local-results workflow for
-ChatGPT Web and Claude Web. ProdLine and FinProdLine are removed from this
+ChatGPT Web, Claude Web and Grok Web. ProdLine and FinProdLine are removed from this
 release; their source remains in Git history.
 
 ## Changes
@@ -22,7 +22,8 @@ release; their source remains in Git history.
 
 ## Boundaries
 
-The operator still clicks Go, website Attach, Send, download and Done. No API
+The operator still clicks Go, website Attach, Send and download; since the panel
+redesign a call finishes itself when its outputs ZIP lands. No API
 execution, response-page scraping or automatic execution of returned code is
 introduced. A valid package does not prove the responder's reasoning is correct:
 semantic acceptance remains explicitly pending review.

@@ -4,8 +4,9 @@ Prepare a clear, bounded job for ChatGPT, Claude or Grok Web, hand over one froz
 ZIP, and collect one returned ZIP. The terminal agent discusses the job with you;
 software generates names, prompt, schemas and package inventory.
 
-The operator chooses the website and conversation, clicks Go, Attach, Send,
-download and Done. The extension never sends a message or reads the response page.
+The operator chooses the website and conversation, clicks Go, Attach and Send,
+and downloads the returned ZIP. A call finishes itself when that ZIP lands. The
+extension never sends a message or reads the response page.
 API execution and production-line orchestration are outside this release.
 
 ## Install
@@ -25,17 +26,21 @@ invocation configuration; Claude's invocation flag is not a portable guarantee.
 
 ## Use
 
-- `/xcall:prep`: clarify purpose, scope and acceptance; show a short brief;
+- `/excall:prep`: clarify purpose, scope and acceptance; show a short brief;
   prepare a frozen package from one job definition.
-- `/xcall:manage`: status, results, resume, stop, correction and recovery.
+- `/excall:manage`: status, results, resume, stop, correction and recovery.
 
 A precise instruction needs no repeated interview or ceremonial approval. Missing
-material decisions must be settled. Every package gets a short job brief.
+material decisions must be settled. Every package gets a short job brief. Every
+job names its `project`; that name leads the exchange folder and both ZIP names.
 
-The side panel chooses ChatGPT/Claude/Grok and new/current conversation per call.
-It attaches only when you click the site's Attach control. Review before Send.
-After downloading the expected outputs ZIP, click Done. Integrity, schema,
-responder completion and semantic acceptance are distinct facts.
+The side panel lists calls as Ready, Running and History. Two toggles choose
+ChatGPT/Claude/Grok and new/current conversation for the next Go; the panel is
+tinted by the chosen agent. It attaches only when you click the site's Attach
+control. Review before Send. When the expected outputs ZIP lands in your
+downloads folder the call is validated and closed on its own, and its row turns
+green or red. Integrity, schema, responder completion and semantic acceptance
+are distinct facts.
 
 See [contract](WEB_CALL_PROTOCOL.md), [manual recovery](docs/MANUAL_FALLBACK.md)
 and [example job](examples/repository_audit.job.json). The legacy `gptwebcall`
@@ -45,7 +50,8 @@ launchers and `prepare --spec` remain compatibility entry points for old exchang
 
 Stop or finish active calls before changing the native-host installation. Keep the
 old call/state folders as evidence. The new host is `com.sina.externalcall` and
-plugin is `xcall@xcall-local`; setup disables the old plugin entry.
+plugin is `excall@excall-local`; setup retires the older `xcall` and `webcall`
+entries, so the skills are `/excall:*` after Claude Code restarts.
 Historical requests and responses are not renamed. The GitHub repository URL
 remains unchanged until a separate repository rename is requested.
 

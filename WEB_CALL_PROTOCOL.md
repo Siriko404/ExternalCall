@@ -5,7 +5,7 @@ surface; this file defines the contract and recovery facts.
 
 ## Job preparation
 
-`/xcall:prep` establishes purpose, task, scope in/out, constraints,
+`/excall:prep` establishes purpose, task, scope in/out, constraints,
 requirements, acceptance evidence/reviewer, deliverables, approved sources and
 stopping conditions. Inspect discoverable facts before asking questions. Ask
 only consequential missing decisions in dependency order. Preserve hypotheses,
@@ -20,6 +20,12 @@ The agent authors one job JSON. `./externalcall brief --job job.json` checks it;
 `externalcall.cmd` with the same arguments. `examples/repository_audit.job.json`
 shows the supported structure. Source paths are relative to the working directory
 or absolute. The wrapper runs from the checkout root.
+
+`project` is required: the short lowercase name (letters, digits, `-`, `_`) of
+the project the job belongs to. It leads the exchange ID, the input ZIP and the
+outputs ZIP, so files from different projects can be told apart in one panel
+and one downloads folder. Exchanges prepared before this field keep their names
+and can still be cloned or corrected.
 
 The compiler assigns attempt IDs and names, snapshots approved evidence and
 creates JOB.json, WEB_REVIEW_REQUEST.json, WEB_RESPONSE_SCHEMA.json,
@@ -53,7 +59,7 @@ Legacy exchanges retain bounded recursive inspection with unambiguous aliases.
 
 ## Validation and acceptance
 
-One validator supplies Done, validate, defects and repair. It checks all ZIP
+One validator supplies finishing, validate, defects and repair. It checks all ZIP
 member CRCs, archive budgets, normalized-path uniqueness, frozen task schema,
 identity, artifact sizes/hashes and output inventory. All schema references must
 be document-local; no network retrieval. Draft 2020-12 and standard formats are
@@ -74,13 +80,23 @@ hashes and schemas does not prove the answer is correct.
 ## Parallel calls and destinations
 
 Several calls may be active at once. Generated output names are the routing key;
-Chrome does not report an originating tab for every download. The destination is
-per call: choose ChatGPT/Claude/Grok and either **In a new tab** or **In the conversation
-I am in**. Existing-thread context can affect the answer; choose intentionally.
+Chrome does not report an originating tab for every download. The agent and the
+destination are two panel toggles, read when Go is pressed: ChatGPT/Claude/Grok
+and either **New tab** or **This chat**. Existing-thread context can affect the
+answer; choose intentionally.
 
 Go verifies frozen inputs before activating. The extension never presses Send,
-automatically downloads, or reads ChatGPT's response page. Done and Stop name an
-exchange explicitly. Repeated Done retrieves that exchange's own report.
+automatically downloads, or reads ChatGPT's response page.
+
+A call finishes itself. Once its expected outputs ZIP is filed in its response
+folder, or has sat untouched for two seconds in the downloads folder
+(`EXTERNALCALL_DOWNLOADS_DIR`, default `~/Downloads`), the companion validates
+it and closes the call; the panel shows it green or red and keeps it in Running
+until it is moved to History. A call whose ZIP has not landed is never finished
+automatically, and the first ZIP that lands is the one that is validated: a
+later corrected ZIP needs a correction round. `done` and `stop` remain explicit
+CLI commands that name an exchange. Repeated `done` retrieves that exchange's
+own report.
 
 Resume requires an explicit destination choice after lost browser state. A browser
 restart destroys tab identity; recovery must not guess or borrow another call's

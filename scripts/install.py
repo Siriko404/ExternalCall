@@ -324,8 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"    and pick {EXTENSION_PATH}")
     print("  - if it is already loaded: reload it")
     print(
-        "Then open its side panel: a green dot and the repository name mean the"
-        " companion answered."
+        "Then open its side panel: a green dot means the companion answered."
     )
     print()
     print(

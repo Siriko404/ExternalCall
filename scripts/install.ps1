@@ -186,8 +186,7 @@ Write-Output 'Installed. In chrome://extensions:'
 Write-Output '  - if the extension is not loaded yet: enable Developer mode, Load unpacked,'
 Write-Output "    and pick $extensionPath"
 Write-Output '  - if it is already loaded: reload it'
-Write-Output 'Then open its side panel: a green dot and the repository name mean the'
-Write-Output 'companion answered.'
+Write-Output 'Then open its side panel: a green dot means the companion answered.'
 Write-Output ''
 Write-Output "Chrome should show the ID $ExtensionId. If it shows a different one, rerun"
 Write-Output 'this script with -ExtensionId and that value.'
