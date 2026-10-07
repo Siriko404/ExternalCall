@@ -118,6 +118,18 @@ test("a finished call is coloured by its delivery, and each state has its own ri
 });
 
 
+/* The frozen top is opaque, or the cards scrolling under it would show through
+ * the toggles, and it sits above them. */
+test("the top of the panel stays put, opaque, above the lists", async () => {
+  const frozen = block(await css(), ".frozen");
+
+  assert.match(frozen, /position: sticky/);
+  assert.match(frozen, /top: 0/);
+  assert.match(frozen, /background: var\(--base\)/);
+  assert.match(frozen, /z-index: [1-9]/);
+});
+
+
 test("motion can be switched off without losing a state", async () => {
   const style = await css();
   const panel = await read("sidepanel.js");

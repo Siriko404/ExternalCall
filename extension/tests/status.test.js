@@ -59,6 +59,14 @@ test("the panel is Ready, then Running, then History", async () => {
   const running = html.indexOf('id="running"');
   const past = html.indexOf('id="past"');
   assert.ok(ready > 0 && ready < running && running < past);
+  // The lists scroll; the top does not. Everything down to the two toggles is
+  // frozen above them, so where Go sends stays in view however long a list is.
+  const frozen = html.slice(html.indexOf('<div class="frozen">'), html.indexOf("<main>"));
+  assert.ok(frozen.length > 0 && html.indexOf('<div class="frozen">') < html.indexOf("<main>"));
+  for (const part of ['class="top"', 'id="health"', 'id="ready-title"', 'id="seg-agent"', 'id="seg-dest"']) {
+    assert.ok(frozen.includes(part), `${part} is in the frozen top`);
+  }
+  assert.doesNotMatch(frozen, /class="cards"/);
   // History is folded until it is opened, and a folded list is out of reach of
   // the keyboard as well as the eye.
   assert.match(html, /id="history-toggle"[^>]*aria-expanded="false"/);
