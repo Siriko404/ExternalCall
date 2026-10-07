@@ -2,13 +2,17 @@
 
 `/plugin marketplace add` followed by `/plugin install` writes exactly two keys
 into ~/.claude/settings.json: the marketplace under `extraKnownMarketplaces`,
-and `xcall@xcall-local` under `enabledPlugins`. This writes the same two, so
+and `excall@excall-local` under `enabledPlugins`. This writes the same two, so
 an agent can install the skills itself instead of handing the operator commands
 to paste.
 
+The skills are invoked as /excall:prep and /excall:manage. They were /xcall:*
+and, before that, /webcall:*; an install retires both older registrations, so
+the same skills are never offered under two prefixes at once.
+
 Everything else in settings.json is preserved. The previous file is copied to
-settings.json.bak-<timestamp> first, and nothing is written when both keys are
-already correct.
+settings.json.bak-<timestamp> first, and nothing is written when the file
+already says all of this.
 
     python scripts/install_skill.py            # install
     python scripts/install_skill.py --dry-run  # show the change, write nothing
@@ -23,8 +27,11 @@ import sys
 import time
 from pathlib import Path
 
-MARKETPLACE = "xcall-local"
-PLUGIN = "xcall@xcall-local"
+MARKETPLACE = "excall-local"
+PLUGIN = "excall@excall-local"
+RETIRED_PLUGINS = ("webcall@webcall-local", "xcall@xcall-local")
+RETIRED_MARKETPLACE = "xcall-local"
+RETIRED_DIRECTORY = "xcall"
 
 
 def settings_path() -> Path:
@@ -32,7 +39,7 @@ def settings_path() -> Path:
 
 
 def plugin_dir() -> Path:
-    return Path(__file__).resolve().parents[1] / "skill" / "xcall"
+    return Path(__file__).resolve().parents[1] / "skill" / "excall"
 
 
 def main(argv: list[str]) -> int:
@@ -52,20 +59,27 @@ def main(argv: list[str]) -> int:
     else:
         settings = {}
 
+    before = json.dumps(settings, sort_keys=True)
     entry = {"source": {"source": "directory", "path": str(source)}}
     marketplaces = settings.setdefault("extraKnownMarketplaces", {})
     enabled = settings.setdefault("enabledPlugins", {})
-    already = (marketplaces.get(MARKETPLACE) == entry and enabled.get(PLUGIN) is True
-               and enabled.get("webcall@webcall-local") is not True)
-    if already:
-        print(f"already registered: {PLUGIN} -> {source}")
-        return 0
-
     marketplaces[MARKETPLACE] = entry
     enabled[PLUGIN] = True
-    # Retire the old namespace during an explicit installation, preserving backup.
-    if "webcall@webcall-local" in enabled:
-        enabled["webcall@webcall-local"] = False
+    # Retire the old namespaces during an explicit installation, preserving backup.
+    for retired in RETIRED_PLUGINS:
+        if retired in enabled:
+            enabled[retired] = False
+    # The previous marketplace pointed at this checkout's skill folder under its
+    # old name. That folder was renamed, so the entry now names a directory
+    # that does not exist; it goes, and its plugin entry goes with it.
+    previous = marketplaces.get(RETIRED_MARKETPLACE)
+    if (isinstance(previous, dict) and isinstance(previous.get("source"), dict)
+            and previous["source"].get("path") == str(source.parent / RETIRED_DIRECTORY)):
+        del marketplaces[RETIRED_MARKETPLACE]
+        enabled.pop(f"{RETIRED_DIRECTORY}@{RETIRED_MARKETPLACE}", None)
+    if json.dumps(settings, sort_keys=True) == before:
+        print(f"already registered: {PLUGIN} -> {source}")
+        return 0
 
     if dry_run:
         print(f"would write {target}:")
@@ -85,7 +99,7 @@ def main(argv: list[str]) -> int:
     os.replace(staging, target)
 
     print(f"registered {PLUGIN} -> {source}")
-    print("Restart Claude Code for /xcall:prep and /xcall:manage.")
+    print("Restart Claude Code for /excall:prep and /excall:manage.")
     return 0
 
 

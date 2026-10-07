@@ -1,11 +1,11 @@
 {
-  "name": "xcall-local",
+  "name": "excall-local",
   "owner": {
     "name": "Siriko404"
   },
   "plugins": [
     {
-      "name": "xcall",
+      "name": "excall",
       "source": "./",
       "description": "Operate ExternalCall: install and smoke-test it, prepare one bounded call, and run every other action."
     }

@@ -13,8 +13,8 @@ Name an exchange explicitly whenever several calls or past results exist.
 - Read: `list`, `active`, `show --exchange <id>`, `defects --exchange <id>`.
 - Wait: `wait --exchange <id>`; use `--timeout-seconds` for a bounded wait.
   Report STILL_WAITING honestly; an event is not permission for another action.
-- Finish: the operator presses Done; manual recovery uses
-  `done --exchange <id> --downloads-dir <dir>` when requested.
+- Finish: automatic once the outputs ZIP lands in the downloads folder; manual
+  recovery uses `done --exchange <id> --downloads-dir <dir>` when requested.
 - Recheck: `validate --exchange <id>` on an inactive exchange with response files.
 - Stop: `stop --exchange <id>` preserves evidence.
 - Resend: `clone --exchange <id>` prepares a new call; it never sends it.

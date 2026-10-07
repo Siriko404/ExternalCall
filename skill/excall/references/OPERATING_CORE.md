@@ -1,7 +1,8 @@
 # Operating facts
 
 Exactly one file goes up: the generated input ZIP. Exactly one file comes back:
-the expected outputs ZIP. The operator controls Go, Attach, Send, download, Done.
+the expected outputs ZIP. The operator controls Go, Attach, Send and download;
+a call finishes itself when its outputs ZIP lands in the downloads folder.
 No response-page scraping or automatic execution of returned code.
 
 Use `externalcall` (Windows `externalcall.cmd`) from the checkout. New jobs use
@@ -13,7 +14,7 @@ Use wait --exchange with an optional timeout; do not write another shell poller.
 Events: COMPLETE, INCOMPLETE, STOPPED, DELETED, REPAIR_OPENED,
 DOWNLOAD_FILING_FAILED, STILL_WAITING. An event is not permission for action.
 
-Done checks bytes and frozen schema. response_status is the responder's claim;
+Finishing checks bytes and frozen schema. response_status is the responder's claim;
 semantic_acceptance requires reading the work against the settled job. Useful
 PARTIAL/BLOCKED work is not a corrupt delivery. Defective metadata is reported
 explicitly; original files remain available. One validator drives defects/repair.

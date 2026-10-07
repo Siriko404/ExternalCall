@@ -1,7 +1,7 @@
 # ExternalCall skills
 
-Two explicit flows: `/xcall:prep` creates a settled job and frozen package;
-`/xcall:manage` operates and reviews exchanges. Install with
+Two explicit flows: `/excall:prep` creates a settled job and frozen package;
+`/excall:manage` operates and reviews exchanges. Install with
 `python3 scripts/setup.py`; register only the skills with
 `python3 scripts/install_skill.py`. Setup/update are deterministic scripts.
 

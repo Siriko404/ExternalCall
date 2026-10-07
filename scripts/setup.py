@@ -48,12 +48,13 @@ IS_LINUX = sys.platform.startswith("linux")
 GUIDE = """\
 How to use it, in full:
 
-  /xcall:prep   describe the task; it writes the request, freezes the files
+  /excall:prep   describe the task; it writes the request, freezes the files
                   and hands you an exchange to launch
-  /xcall:manage status, results, recovery and correction
+  /excall:manage status, results, recovery and correction
 
   In the side panel: Go -> click the site's own Attach files -> check what
-  attached -> Send -> download the one archive -> Done and validate.
+  attached -> Send -> download the one archive. The call finishes itself when
+  the archive lands in your downloads folder.
 
   The extension never sends and never reads the reply page. Those clicks are
   yours by design, not by omission.
@@ -323,11 +324,11 @@ def main(argv: list[str]) -> int:
         f"""
 === One step left ===
 
-Restart Claude Code. Slash commands register at startup, so /xcall:* appears
+Restart Claude Code. Slash commands register at startup, so /excall:* appears
 in the next session, not this one.
 
-Use /xcall:prep for a small smoke-test job and record the actual browser
-observations from skill/xcall/references/SMOKE_TEST.md.
+Use /excall:prep for a small smoke-test job and record the actual browser
+observations from skill/excall/references/SMOKE_TEST.md.
 
 {GUIDE}"""
     )
