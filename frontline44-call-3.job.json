@@ -1,0 +1,146 @@
+{
+  "project": "frontline44",
+  "title": "M8b loot and death drops \u2014 isolated packet",
+  "purpose": "Implement exact battle loot using one death dispatcher shared safely with progression.",
+  "task": "Author source code and tests for \u00a78.8: battle-start spawn table, marine death gun+parts table, variable parts pickups and HUD comparison, plus T14 forced-chance integration.",
+  "scope": {
+    "in": [
+      "On hostile SM_Marine death, independent gun drop probability 35%; tier weapon table Conscript Kar98k|Luger, Regular Kar98k|MP40, Veteran MP40|StG44, Elite StG44, magazine randomized from 0 through MagSize; all hostile non-FL_SoldierGER are Regular.",
+      "Parts chance 30% plus 15% per Scavenger rank (as defined in \u00a75), 1\u20132 parts; ensure FL_PartsPickup represents amounts 1 or 2 while starting TID-160 pickup grants exactly 2.",
+      "Battle start TID-160 50% FL_PartsPickup(2), 25% Doom ClipBox, 25% nothing. Reuse existing Handler.PlaceLoot rather than spawning twice.",
+      "Keep existing nearest-ownerless FL_Weapon \u226496 HUD comparison, every 10 tics, including hands-full/J-to-drop; propose only minimal correction if spec demands.",
+      "Implement T14 with exactly 20 German kills and production death hooks at forced 100% gun-drop chance, then count exactly 20 spawned ownerless gun pickups. Never claim PASS from counters or test-only directly spawned guns."
+    ],
+    "out": [
+      "Shop, workbench, roster purchases, class/skill logic, M7, package changes, duplicate kill XP awards or donor edits."
+    ]
+  },
+  "constraints": [
+    "Use only the specifically supplied source files. source_001_FRONTLINE44_SPEC.md controls, including the approved \u00a78.6 debut reservation. Distinguish verified source facts from untested engine hypotheses.",
+    "Parallel source authoring only; the operator alone integrates in M7\u2192M8\u2192M9\u2192M10 order, repairs compiler/API faults, runs the engine, accepts milestones and ships. No engine is assumed available to this call; never claim that load or any test PASS was executed.",
+    "ZScript only for gameplay; all custom files under frontline/; no donor code modifications; FL_ custom class prefix and fl_ CVar prefix; every newly introduced production number other than 0/1 must be declared in FL_T. Do not weaken tests or change existing PASS semantics.",
+    "Preserve M0\u2013M6 baselines and T1\u2013T11/T13 arg0/T16; no whole-file Handler.zs, Tests.zs, Tuning.zs, zscript.zs, mapinfo.txt or keyconf.txt rewrites. A parallel implementation must provide method-only fragments and a machine-readable hooks.json for operator application.",
+    "Frozen-source status conflict: source_002 claims M6/T10 PASS while source_012 records T10 FAIL and source_016 was an unrun proposal. Treat current M6 verification as an operator preflight gate, not a proved PASS; never change director economics within this job.",
+    "Result is inert code; report unverified ZScript signature assumptions as PARTIAL/BLOCKED and provide diagnostics. Do not silently add game features, implement test-only cheats, relax thresholds or edit donor code.",
+    "Exclusive existing editable path: frontline/zscript/fl/Items.zs ONLY; supply complete preserved-file replacement + unified diff if variable-size FL_PartsPickup needs changes. No change to existing 999999 caps or 10 skill classes.",
+    "Single Handler.WorldThingDied override is integrator-owned: Call 2 M8A_OnDeath(e) runs first, then Call 3 M8L_OnDeath(e); do not define an override in Call 3 output.",
+    "Integrator replaces only Handler.PlaceLoot method body (existing WorldLoaded call already executes it) and optionally UpdateLoot body if strictly needed; T14 setup/tick hooks are added to existing Tests.WorldLoaded and WorldTick.",
+    "T14 forced drop probability must only operate under fl_selftest==14; normal battle uses 35%, part probabilities remain correct and no donor SM_Marine automatic drop is miscounted.",
+    "All 0\u20131 and greater constants (loot rates, target count, tier tables, range, tick interval, gun class mapping, part yields) must use FL_T tables/constants with no new nonzero magic numbers outside Tuning."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Implement exact kill and map-spawn loot",
+      "acceptance": {
+        "condition": "Drop guns/parts conditional on correct filters/tier and probability; variable parts pickup count; starts at all TID-160 only once, compare HUD behaves as specified.",
+        "method": "review",
+        "evidence": [
+          "call-3-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "Provide production-path T14 and safe hooks",
+      "acceptance": {
+        "condition": "Exactly 20 kills and 20 actual ownerless gun pickups under forced chance; test path uses same M8L_OnDeath as live play, with no duplicate XP/death override.",
+        "method": "review",
+        "evidence": [
+          "call-3-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "Preserve prior tests",
+      "acceptance": {
+        "condition": "Items.zs existing classes preserved and handler tests unmodified except unique hooks; operator plan load57, T14/T5, full prior regression (incl T10/T11/T12/T13a/T16).",
+        "method": "review",
+        "evidence": [
+          "call-3-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "call-3-packet.zip",
+      "description": "ZIP containing README-integration.md (exact hooks/assumptions), owned/ (only exclusively owned complete files), fragments/ (Handler method definitions, Tuning FL_T member declarations, TestHandler methods as relevant), hooks.json (ordered records with id/file/unique anchor/operation/payload/before_or_after/depends_on/expected_match_count=1), verification.md (unexecuted compilation and exact-test checklist), limitations.md. Include diffs against each owned baseline. No entire shared-file replacement or unapproved changes."
+    },
+    {
+      "filename": "call-3-loot-test-contract.md",
+      "description": "Loot probability/tier/parts table, T14 setup and actor-count provenance, merge/verification details."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/home/sina/Downloads/FRONTLINE44_SPEC.md",
+      "role": "Authoritative game/spec \u00a70, \u00a75, \u00a78.7, \u00a711 T12, \u00a713 and \u00a712."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/SPLIT_DESIGN_BRIEF.md",
+      "role": "Five-call model, done milestones and integration assumptions."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Handler.zs",
+      "role": "Read-only shared handler baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tests.zs",
+      "role": "Read-only shared harness baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tuning.zs",
+      "role": "Read-only FL_T baseline; publish constants fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Weapons.zs",
+      "role": "Weapon/drop/projectile implementations and gun index contracts."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Items.zs",
+      "role": "Current inventories, parts pickup and upgrade/roster records; exclusive Call 3 edit path."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Stats.zs",
+      "role": "Existing FL_Stats formulas; do not change PASS T13a."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Soldiers.zs",
+      "role": "Tier/rank, squad flags and hostile types."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/BUILD_LOG.md",
+      "role": "Historical outcomes; T10 baseline conflict must be acknowledged."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/DECISIONS.md",
+      "role": "Binding previous integration decisions/limitations."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/TEST_SPEED_EVIDENCE.md",
+      "role": "Actual test/run constraints, solo engine and kill-on-verdict."
+    },
+    {
+      "path": "/home/sina/Work/ExternalCall/examples/repository_audit.job.json",
+      "role": "Template defining job JSON style and required keys."
+    }
+  ],
+  "stop_condition": "Deliver call-3-packet.zip and loot/test contract; report any unverified donor-drop interaction PARTIAL.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      }
+    }
+  }
+}

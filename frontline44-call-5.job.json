@@ -1,0 +1,138 @@
+{
+  "project": "frontline44",
+  "title": "M9 cleanliness and M10 distribution implementation \u2014 isolated packet",
+  "purpose": "Provide professional ship-preparation scripts/templates and a post-integration quality gate, without touching the gameplay work owned by other calls.",
+  "task": "Replace the temporary tools/package.sh with the complete \u00a712 distribution packager, static checks and release/playtest assets; document how operator executes T15 and validates the fully merged build.",
+  "scope": {
+    "in": [
+      "Author full tools/package.sh to create `dist/Frontline44/` containing mods/KAI.pk3, SmartMarines.pk3, MilitaryVehiclesPack.pk3, GunBonsai.pk3, frontline.pk3, freedoom2.wad, uzdoom/ from Windows UZDoom 5.0.1 x86_64 release, Play.bat, Play.sh, README.txt, CREDITS.txt; zip to Frontline44.zip.",
+      "Package archives with documented exclusions `.git/*`, `WikiFiles/*`, `Wiki/*`, `tools/*` and exact mod load order KAI \u2192 SmartMarines \u2192 MilitaryVehiclesPack \u2192 GunBonsai \u2192 frontline. Detect missing pinned donors, engine, IWAD and executable names clearly without silently dropping files; do not touch donor repos.",
+      "README documents exact \u00a78.11 controls and `New Game \u2192 Frontline 44`; CREDITS includes UZDoom GPLv3+, Freedoom BSD, KAI GPL-3.0, Smart Marines LGPL-2.1, Military Vehicles Pack LGPL-2.1 and Gun Bonsai MIT, author attributions and private-use-only note.",
+      "Provide production-quality M9 T15 log/warning audit instructions/scripts, with `grep -iE \"unknown|not found|missing|error\" logs/*.log`, source attribution and no suppression of FL_/map errors; include static check for names/prefixes, wrong donor edits and new numeric literals outside FL_T.",
+      "Provide launch-time smoke checklist (load exit 57 and verify zip member paths/file sizes, Linux launch when available, Windows unresolved without Windows execution) and complete Sina manual playtest checklist (\u00a712). Because other four call outputs are unavailable in parallel, make warning remediation a *postmerge operator task*, not fabricated code fixes."
+    ],
+    "out": [
+      "Implement M7/M8 code, independently alter tests or PASS criteria, modify frontline shared files, claim final packager or Windows launcher was executed, distribute assets not provided."
+    ]
+  },
+  "constraints": [
+    "Use only the specifically supplied source files. source_001_FRONTLINE44_SPEC.md controls, including the approved \u00a78.6 debut reservation. Distinguish verified source facts from untested engine hypotheses.",
+    "Parallel source authoring only; the operator alone integrates in M7\u2192M8\u2192M9\u2192M10 order, repairs compiler/API faults, runs the engine, accepts milestones and ships. No engine is assumed available to this call; never claim that load or any test PASS was executed.",
+    "ZScript only for gameplay; all custom files under frontline/; no donor code modifications; FL_ custom class prefix and fl_ CVar prefix; every newly introduced production number other than 0/1 must be declared in FL_T. Do not weaken tests or change existing PASS semantics.",
+    "Preserve M0\u2013M6 baselines and T1\u2013T11/T13 arg0/T16; no whole-file Handler.zs, Tests.zs, Tuning.zs, zscript.zs, mapinfo.txt or keyconf.txt rewrites. A parallel implementation must provide method-only fragments and a machine-readable hooks.json for operator application.",
+    "Frozen-source status conflict: source_002 claims M6/T10 PASS while source_012 records T10 FAIL and source_016 was an unrun proposal. Treat current M6 verification as an operator preflight gate, not a proved PASS; never change director economics within this job.",
+    "Result is inert code; report unverified ZScript signature assumptions as PARTIAL/BLOCKED and provide diagnostics. Do not silently add game features, implement test-only cheats, relax thresholds or edit donor code.",
+    "Exclusive editable path: tools/package.sh (replacement of temporary stub), plus new packaging templates/scripts/readmes only. No Handler.zs/Tests.zs/Tuning.zs/World.zs/Items.zs edits.",
+    "Full Windows package must use actual 5.0.1 binary layout; the current sources omit real Win zip and UZDoom extraction tree, so implement robust detection and return UNVERIFIED or BLOCKED details rather than inventing a binary name. Linux Play.sh must use actual Linux AppImage/engine distribution and correct paths.",
+    "Release acceptance requires operator to merge Calls 1\u20134 and verify T12 args0\u20136, T13 args0\u20131, T14, T15 plus every previous PASS. The T15 check is the specified grep on real logs, not a dummy always-PASS ZScript test.",
+    "M9 cleanliness is performed **after** M8 acceptance; no pass can be inferred from supplied dated pre-M8 logs. A known historical grep false positive `BurningTerror` may be documented after checking actual log context, but warnings from FL_ code/maps must not be silenced.",
+    "Release code may be staged before M7/M8 are verified; `tools/package.sh` may only be used for milestone acceptance after the operator has compiled and tested merged game code."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Implement exact distribution structure and launchers",
+      "acceptance": {
+        "condition": "Script creates all required directory members, archives donor and custom sources with correct exclusions and load order, READMEs/credits, Frontline44.zip; missing assets produce actionable failure.",
+        "method": "review",
+        "evidence": [
+          "call-5-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "Deliver executable M9 quality gate without weakened PASS",
+      "acceptance": {
+        "condition": "T15 inspection, compile/log warnings, source attribution and numeric/name audit operate on actual merged runs and cannot report PASS from absent logs; errors attributable to FL_ or maps block M9.",
+        "method": "review",
+        "evidence": [
+          "call-5-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "Provide truthful release verification and playtest readiness",
+      "acceptance": {
+        "condition": "Operator plan covers post-M8 full regression, load=57, zip content/load smoke, Windows unknowns, credits/licenses and full Sina gameplay checklist; no false execution assertion.",
+        "method": "review",
+        "evidence": [
+          "call-5-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "call-5-packet.zip",
+      "description": "ZIP containing README-integration.md (exact hooks/assumptions), owned/ (only exclusively owned complete files), fragments/ (Handler method definitions, Tuning FL_T member declarations, TestHandler methods as relevant), hooks.json (ordered records with id/file/unique anchor/operation/payload/before_or_after/depends_on/expected_match_count=1), verification.md (unexecuted compilation and exact-test checklist), limitations.md. Include diffs against each owned baseline. No entire shared-file replacement or unapproved changes."
+    },
+    {
+      "filename": "call-5-release-gates.md",
+      "description": "Exact M9 T15, M10 packaging/OS smoke and Sina playtest checklist, all assumptions and missing-runtime limitations."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/home/sina/Downloads/FRONTLINE44_SPEC.md",
+      "role": "Authoritative game/spec \u00a70, \u00a75, \u00a78.7, \u00a711 T12, \u00a713 and \u00a712."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/SPLIT_DESIGN_BRIEF.md",
+      "role": "Five-call model, done milestones and integration assumptions."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Handler.zs",
+      "role": "Read-only shared handler baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tests.zs",
+      "role": "Read-only shared harness baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tuning.zs",
+      "role": "Read-only FL_T baseline; publish constants fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/BUILD_LOG.md",
+      "role": "Historical outcomes; T10 baseline conflict must be acknowledged."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/DECISIONS.md",
+      "role": "Binding previous integration decisions/limitations."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/TEST_SPEED_EVIDENCE.md",
+      "role": "Actual test/run constraints, solo engine and kill-on-verdict."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/docs-excall/test-speed-plan.md",
+      "role": "Prior optimization proposal; do not claim unmeasured speedups."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/docs-excall/t10-resolution.md",
+      "role": "Previous proposal; authoritative \u00a78.6 is now amended; prior document untested."
+    },
+    {
+      "path": "/home/sina/Work/ExternalCall/examples/repository_audit.job.json",
+      "role": "Template defining job JSON style and required keys."
+    }
+  ],
+  "stop_condition": "Deliver call-5-packet.zip and release gate checklist; mark final warning status, binary/OS verification, playtest and archive run UNVERIFIED until operator performs them.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      }
+    }
+  }
+}

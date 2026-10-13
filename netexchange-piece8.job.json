@@ -1,0 +1,650 @@
+{
+  "project": "netexchange",
+  "title": "Net Exchange piece 8: audit the clear-out, finish it, write the panel list",
+  "purpose": "Close piece 8 (\"remove what is left of the old shell\") of the one-panel screen rebuild of the Net Exchange currency-exchange bureau application. When the result of this call has been applied by hand and has passed the owner's local checks, (1) the web code holds no leftover of the old page shell, (2) section 2 of docs/spec.md is the list of panels exactly as the code has them, tied to the routes by a test, and (3) README.md, app/README.md and the plan document say what is true. The result is reviewed line by line and applied on the owner's machine by another agent, called \"the terminal\" below. It must therefore be exact, as small as the task allows, and honest about everything that was not run.",
+  "task": "Work only from the supplied files, in this order. (1) Unpack netexchange-snapshot.zip twice, as base/ and as work/, and change only work/. The snapshot is git commit 31212a2 of branch main plus the uncommitted change shown in piece8-clearout.diff, which is already applied in the snapshot; the snapshot's root folder netexchange/ is the repository root. (2) Audit that change (R1, R2). (3) Search the web code for further leftovers of the old page shell and remove what is proven dead (R3). (4) Add the two test files (R4, R5). (5) Rewrite section 2 of docs/spec.md as the list of panels (R6, R7, R8), noting on the way where documents and code differ (R17). (6) Bring README.md and app/README.md up to date (R9, R10) and append the block of piece 8 to the plan (R11). (7) Run what your environment can run and record it word for word (R12, R13). (8) Produce the patch with a diff tool, the changed files in full, the report and the main JSON (R14, R15, R16, R18). Words used in this job: a PANEL is the one card in the middle of the screen, the JSX element <Panel> of app/src/web/panel.tsx; the CASHIER is the person at the counter (role \"operator\"); an ADMINISTRATOR has the role \"admin\"; an ADDRESS is the path and query of the URL; a KEY is a numbered thing pressed as Ctrl with its number and shown in a small cap (PickKey in app/src/web/panel.tsx); the STAGE ROW is the row of names on the top line that says where the cashier is (where() in app/src/web/flows.ts); the OLD SHELL, or the PAGES OF BEFORE, is the page frame of the application before the rebuild (a page title, tabs, tables), which pieces 1 to 7 replaced screen by screen; the OWNER is Sina, who decides.",
+  "scope": {
+    "in": [
+      "The audit of the supplied uncommitted change (piece8-clearout.diff), hunk by hunk.",
+      "Dead code and stale comments of the old page shell in app/src/web, outside app/src/web/tutorial.",
+      "Two new test files: app/tests/shown.test.ts and app/tests/spec-panels.test.ts.",
+      "docs/spec.md: the two words 'page list' on line 3, and section 2 from its heading to the line before '## 3. Data model'.",
+      "README.md: one new paragraph under Status, the bullets under 'Proposed, not yet confirmed:', and the Status cell of roadmap row 9.",
+      "app/README.md: the part from the heading '## What exists' to the end of the file.",
+      "docs/design-2026-10-08-one-panel.md: one block appended at the very end of the file.",
+      "A report on everything found, including what must be left for the owner to decide."
+    ],
+    "out": [
+      "Any file under app/src/server, app/drizzle or app/src/web/tutorial; app/package.json, app/package-lock.json, app/tsconfig.json, app/vite.config.ts, app/drizzle.config.ts, app/index.html, app/docker-compose.yml, .gitignore.",
+      "Any existing file under app/tests: each stays byte-identical. No test is removed, skipped, loosened or renamed.",
+      "Any change to what a cashier or an administrator can see, read, press or do: no title, word on a screen, key number, address, order of a list, colour or behaviour changes. This call removes dead code and writes documents and tests; it changes no screen.",
+      "The two redirects of old addresses in app/src/web/App.tsx: the component AddressOfBefore with its Route '/exchange', and the Route '/business/figures'. Both stay as they are; a paused tutorial lesson still uses the first.",
+      "Piece 9 (the tutorial lessons), any new feature, any refactoring for taste, renaming, reformatting, re-wrapping or re-ordering of lines the task does not need.",
+      "Every part of docs/spec.md other than the two words on line 3 and section 2. Sections 1 and 3 to 7 stay byte-identical, also where they name a page of before.",
+      "A browser-driven walk of the screens, and any script for one.",
+      "Committing, publishing, or sending any supplied file or part of it to any other service or site.",
+      "Research about the bureau, its owner, its customers or the software it uses today."
+    ]
+  },
+  "constraints": [
+    "SOURCES. The supplied files are the only evidence about this project. Web lookups are allowed only for the documentation of the libraries named in app/package.json. The documents docs/FINDINGS.md, docs/old-system.md, docs/rate-calculation.md and docs/audit-*.md, which docs/spec.md refers to, exist in the repository, are not supplied and are not needed; leave every reference to them as it is.",
+    "TRUTH FROM THE CODE. Every statement about a screen that you write into a document (a title, a key's number, what a key does, who may use it, an address) is read from the snapshot's code and is traceable to a file and line that you give in the main JSON. Nothing is written from memory, from the plan alone, or from how such applications usually work. Where a document and the code differ, the document follows the code and the difference is listed (R17); the code is not changed to match a document.",
+    "NOTHING TAKEN AWAY. If a removal or correction would change what a user can see or do, do not make it; describe it in report.md section 9.",
+    "REMOVAL NEEDS PROOF. A function, component, constant, type, property, style rule or file is removed only when a recorded search (the command and its complete output) over work/app/src and work/app/tests shows no reference other than its own declaration. Anything referenced from app/src/web/tutorial or from app/tests stays.",
+    "PROTECTED TEXT, byte-identical in the result: in README.md the title and the Goal lines above the Status heading, every line from the heading '## What we have' down to and including the last row of the Decisions table (the line before 'Proposed, not yet confirmed:'), the heading '## Status (2026-10-07)' with the paragraph under it, the roadmap rows 0 to 8, and the paragraph that begins 'Open before go-live:'; in app/README.md everything above the heading '## What exists'; in docs/design-2026-10-08-one-panel.md every existing line; in docs/spec.md everything except the two words on line 3 and section 2. The Decisions table quotes the owner word for word and is a record.",
+    "ALLOWED PATHS. The patch touches only: docs/spec.md; docs/design-2026-10-08-one-panel.md; README.md; app/README.md; the files directly in app/src/web/ with the ending .ts or .tsx; the files in app/src/web/pages/; and the two new files app/tests/shown.test.ts and app/tests/spec-panels.test.ts. If a needed change lies elsewhere, do not make it; describe it in report.md section 9.",
+    "SMALLEST DIFF. Do not reflow, re-wrap, re-indent or re-order lines you do not have to change. Do not change the white space of untouched lines. No mode changes, no binary files.",
+    "STYLE OF THE DOCUMENTS. Plain complete sentences in everyday words, as the neighbouring text: say 'cashier', 'panel', 'address', 'key', 'drawer', and use the words the screens themselves show. No emoji, no praise, no marketing words, no headings in capitals. Spelling as the file already has it (British: 'colour'). Prose is wrapped at about 96 columns as the neighbouring lines are; a table row stays on one line. No trailing spaces; UTF-8; LF line ends; each file ends with exactly one newline.",
+    "STYLE OF THE CODE. Match the file you are in: 2 spaces, double quotes, semicolons, long lines as the file has them, imports with the .ts or .tsx ending, comments as plain sentences that say what the thing is for. Tests use describe, it and expect from vitest as app/tests/flows.test.ts does. No new dependency and no new configuration.",
+    "DATES AND COUNTS. Today is 2026-10-12. Write no other date for this work and no duration. Write no number of tests or of test files into any document.",
+    "HONESTY ABOUT CHECKS. A check counts as passed only when its command and its complete, unedited output are in run-log.txt. For a check you could not run, say which command failed first and with what output, report its criterion as UNKNOWN, and deliver the call as PARTIAL. Never describe an unrun check as passed, in any file.",
+    "NO PLACEHOLDERS. No delivered file contains 'TODO', 'TBD', 'to be filled in', an ellipsis standing for omitted content, or a sentence that promises later work. The appended plan block makes no statement about checks; the terminal adds that after its own run.",
+    "THE PATCH IS MADE BY A TOOL. Edit real files in work/ and produce piece8.patch with git or diff from base/ and work/. Do not type a patch by hand and do not edit it after it is produced."
+  ],
+  "facts": [
+    "OBSERVED by the terminal: the application is one TypeScript package in app/ (Vite 8, React 19, Tailwind 4, react-router-dom 7, Hono, Drizzle, PGlite for tests, Vitest 5, zod 4, TypeScript 7) and is developed on Node v26.8.1. From app/: install with 'npm ci'; type check with 'npx tsc --noEmit'; test suite with 'NODE_ENV=test npx vitest run --maxWorkers=5' (without the worker limit a busy machine fails with 'Hook timed out in 10000ms'). The tests start the server in the same process on an in-memory database; no other service is needed.",
+    "OBSERVED by the terminal on 2026-10-09: at commit 31212a2, before the supplied change, the whole suite passed. On the snapshot, with the supplied change, 'npx tsc --noEmit' exited 0. The suite has NOT been run on the snapshot.",
+    "The screen rebuild has nine pieces. Pieces 1 to 7 are built and committed: every screen is a panel. Piece 8 is this call. Piece 9, the tutorial lessons rewritten for the panels, waits for the owner's word and is not part of this call. docs/design-2026-10-08-one-panel.md is the plan; its section 10 records, piece by piece, what was built.",
+    "The owner's rule of the keys, as built in app/src/web/keys.ts and app/src/web/panel.tsx: everything on a panel has a key and shows it in a cap, a box as well as a button; a numbered thing is pressed with Ctrl and its number from anywhere, also from inside a box; a number never moves while its panel is up, so a thing that is away keeps its place (KEPT); a panel has at most ten keys, 1 to 9 and then 0; Enter goes on; Esc goes back; Ctrl with Enter goes on from a box of several lines; Ctrl with the left arrow puts the cursor in the rates list and Ctrl with the up arrow in the top line.",
+    "The owner's standing rules that bind this call: nothing is taken away from the cashier without his word; the server is not changed in the rebuild without his word; each piece starts only on his word.",
+    "What the supplied change did, as the terminal wrote it: in app/src/web/App.tsx it removed the function isPanel, the function up, the Escape entry of the shell's useKeys call and the import and call of useNavigate, and corrected two comments; in app/src/web/flows.ts it corrected one comment; in app/src/web/ui.tsx it removed the components ExportCsv, PageHeader and Toggle and the import of the Download icon; it deleted app/src/web/pages/Collect.tsx and moved its four declarations (REMITTANCE_STATUS, expiryText, datedAhead, createdText) to the end of app/src/web/shown.ts; it changed the imports of TransferPanels.tsx, KioskPanels.tsx and FindPanels.tsx to match.",
+    "SNAPSHOT_SHA256.txt, also inside the snapshot zip, gives for every file of the snapshot its SHA-256, its size in bytes and its path from the repository root."
+  ],
+  "hypotheses": [
+    "H1, the terminal's claim, to be tested in R2: the removed Escape entry of the shell could never fire, because the removed function isPanel returned true for every address that a Route of App.tsx draws, and every screen has a way back of its own.",
+    "H2, to be tested in R1: the three components removed from ui.tsx and the file pages/Collect.tsx had no user left in app/src or app/tests.",
+    "H3, to be tested in R1: Export CSV is still reachable in three places, each with its own key: under 'Narrow down' of Find a deal (FindPanels.tsx), on the Ledger (LedgerPanels.tsx) and on a report (ReportPanels.tsx). The removed ExportCsv component was an older button for the same thing and took nothing away."
+  ],
+  "assumptions": [
+    "Your environment may have no Node 22 or newer, or no network for 'npm ci'. Then the commands of R12 cannot run; that is an honest PARTIAL, not a reason to withhold the rest."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "AUDIT OF THE CLEAR-OUT. Audit every hunk of piece8-clearout.diff against the snapshot. For each removed thing (in app/src/web/App.tsx: isPanel, up, the Escape entry of the shell's useKeys call, the useNavigate import and call; in app/src/web/ui.tsx: ExportCsv, PageHeader, Toggle; the file app/src/web/pages/Collect.tsx, searched for as 'Collect.tsx') run a whole-word search over work/app/src and work/app/tests and record the command and its complete output; a removed thing is proven unused when the search finds nothing. The Download icon is a separate case: ui.tsx no longer imports it, and FindPanels.tsx, LedgerPanels.tsx and ReportPanels.tsx rightly still do, so search for the word Download in work/app/src/web/ui.tsx only and expect nothing there. Compare the four declarations at the end of app/src/web/shown.ts (REMITTANCE_STATUS, expiryText, datedAhead, createdText) with the ones the diff removes, token by token. Check that TransferPanels.tsx, KioskPanels.tsx and FindPanels.tsx import every name they use from shown.ts exactly once. Check that each changed comment says what the code now does. Test H2 and H3: for H3 give the file and line of each of the three Export CSV links and of the key each one shows. Give every hunk the verdict SOUND or DEFECT. A DEFECT is put right in the patch with the smallest change and entered in results.defects.",
+      "acceptance": {
+        "condition": "report.md section 1 has one entry per hunk of the supplied diff (file, hunk header, verdict, evidence). Every removed thing has a recorded search command with its complete output. The three Export CSV places are given as file and line. results.clearout_verdict is SOUND only if no hunk is a DEFECT; every DEFECT is in results.defects with fixed_in_patch true and has a hunk in piece8.patch.",
+        "method": "review",
+        "evidence": [
+          "report.md#1",
+          "results",
+          "piece8.patch"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "ESC ON EVERY ADDRESS. Prove or refute H1. For every <Route path=...> element of the snapshot's app/src/web/App.tsx, in the order of the file, give one entry in results.routes with: 'path', exactly as written; 'kind', which is 'redirect' when the element only redirects (<Navigate> with no condition, or <AddressOfBefore />) and 'panel' otherwise (a route that draws a panel for an administrator and redirects a cashier is 'panel', and 'note' says so); 'component'; 'shell_esc_was_reachable', found by evaluating the removed function isPanel, as the diff shows it, on the path with every ':name' part replaced by 'x' (true when isPanel gives false); 'esc_handler', the file and line of the code that handles Esc on that screen (the onBack of its <Panel>, a useBack(...) call, a useKeys({ Escape: ... }) call, or the flow's own way back); when the address shows several panels or views, one handler for each in 'views'; and 'esc_goes_to', in a few words and as an address: where Esc leads when the screen is opened directly by its address with no history in that browser tab. If a route of kind 'panel' has no way back of its own, or shell_esc_was_reachable is true for any route but '*', that is a DEFECT of the clear-out: do not restore the shell's Escape entry; give that screen 'const back = useBack(ADDRESS); useKeys({ Escape: back });' as app/src/web/pages/Receipt.tsx does, where ADDRESS is one step up on that screen's stage row (where() in app/src/web/flows.ts), and enter it in results.defects.",
+      "acceptance": {
+        "condition": "results.routes has exactly one entry for each <Route path= element of the snapshot's App.tsx, in the same order and with the same path strings (the terminal counts them with grep). Every entry of kind 'panel' names an esc_handler whose file and line, opened in the patched tree, shows that handler. report.md section 2 says in one sentence whether H1 holds and lists every exception.",
+        "method": "review",
+        "evidence": [
+          "results",
+          "report.md#2"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "FURTHER LEFTOVERS. Find what else is left of the old page shell in app/src/web, outside app/src/web/tutorial. Search for: (a) exported or module-level functions, components, constants, types and interfaces that nothing in work/app/src or work/app/tests refers to except their own declaration; (b) properties of the components in app/src/web/ui.tsx and app/src/web/panel.tsx that no caller passes; (c) rules, custom properties and keyframes of app/src/web/index.css that no file under app/src/web uses, counting a use inside a Tailwind class string (for example 'bg-found' or 'text-buy' use '--color-found' and '--color-buy'); (d) comments that speak of a page as still to be rebuilt, of \"today's page\", or of a page of before as if it still existed. Remove (a) only under the constraint REMOVAL NEEDS PROOF. Do NOT remove (b) or (c): list them in report.md section 3 with the search that shows them unused (a property handed on through a spread counts as used; a wrong removal of a style changes a colour on a screen and no check would catch it). Correct (d) so that the comment says what the code does now; a comment that records history truthfully (for example 'the address the page of before had') stays. An export that is used only inside its own file stays as it is. (e) List in results.unused_api_members every member of the objects 'api' and 'csvUrl' of app/src/web/api.ts that nothing under app/src/web calls; remove NONE of them: an unused client call can mean that the rebuild lost a capability, which the terminal checks against the history. Where a category yields nothing, say so and give the searches run.",
+      "acceptance": {
+        "condition": "results.removed has one entry per removed thing with its file, the search command and the complete output of that search as run BEFORE the removal, which shows the declaration and nothing else; the same search run by the terminal on the patched tree finds no reference at all. No entry lies under app/src/web/tutorial, app/src/server or app/tests. results.unused_api_members is present (it may be empty) and the patch touches none of its members. report.md section 3 lists the searches run for (a) to (e), also those that found nothing.",
+        "method": "review",
+        "evidence": [
+          "results",
+          "report.md#3",
+          "piece8.patch"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R4",
+      "requirement": "TEST OF THE TRANSFER WORDS. Add app/tests/shown.test.ts for REMITTANCE_STATUS, expiryText, datedAhead and createdText of app/src/web/shown.ts. Every case passes its own 'now' argument, so no case depends on the clock or the time zone of the machine; use now = new Date(\"2026-10-12T16:00:00.000Z\") and build the other moments from it in milliseconds. Cover at least these inputs. The expected results are the terminal's reading of the code: derive each one yourself from the code, and if yours differs the code wins and you say so in report.md section 4. expiryText: now + 18 days gives 'Expires in 18 days'; now + 36 hours gives 'Expires in 2 days'; now + 24 hours gives 'Expires in 1 day'; now + 1 hour gives 'Expires in 1 day'; exactly now gives 'Expired today'; now - 1 hour gives 'Expired today'; now - 24 hours gives 'Expired 1 day ago'; now - 3 days gives 'Expired 3 days ago'. createdText: now + 2 days gives 'Dated ahead, ' followed by showDay of that moment (import showDay from app/src/web/api.ts, do not type the day); exactly now and now - 1 hour give 'Created today'; now - 24 hours gives 'Created 1 day ago'; now - 12 days - 1 hour gives 'Created 12 days ago'. datedAhead: status 'pending' with dealAt after now is true; 'pending' with dealAt before now, and with dealAt exactly now, is false; 'collected', 'expired' and 'reverted' with dealAt after now are false. REMITTANCE_STATUS has exactly the four statuses pending, expired, collected, reverted with the labels Pending, Expired, Collected, Reverted and the tones amber, red, green, slate. Change nothing in shown.ts for this test. If the code can never produce a string that its comment promises (the terminal believes 'Expires today' is one), do not change the code: test what the code does and enter the finding in results.code_vs_docs_differences and in report.md section 9.",
+      "acceptance": {
+        "condition": "app/tests/shown.test.ts exists in piece8-files.zip and in the patch as a new file, holds a case for every input listed, passes an explicit 'now' in every call, and imports nothing but vitest, ../src/web/shown.ts and ../src/web/api.ts. Run by the terminal in the patched tree, it passes; with 'days > 1' changed to 'days >= 1' in expiryText it fails.",
+        "method": "review",
+        "evidence": [
+          "piece8-files.zip",
+          "piece8.patch",
+          "report.md#4"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R5",
+      "requirement": "TEST THAT TIES THE PANEL LIST TO THE ROUTES. Add app/tests/spec-panels.test.ts. It reads docs/spec.md and app/src/web/App.tsx as text, with paths resolved from import.meta.url as app/tests/tutorial.test.ts resolves its paths, and imports FLOWS from ../src/web/flows.ts, STATEMENTS and REPORTS from ../src/web/business.ts and SETTINGS from ../src/web/setup.ts. EXPECTED ADDRESSES: the path of every <Route path=\"...\"> of App.tsx, except '*' and except a route whose element only redirects (<Navigate ...> with no condition before it, or <AddressOfBefore />), with these parts written out, one address for each value: ':panel' of /exchange, /send and /collect becomes each panel id of that flow in FLOWS; ':statement' becomes each id of STATEMENTS and also 'rates'; ':name' of /reports becomes each name of REPORTS; ':group' becomes each id of SETTINGS. Other parts (':id', ':code') stay as written. ADDRESSES OF THE TABLE: for every row of the table under the heading '### 2.2 The panels', the text of the Address cell inside its backticks, cut at the first '?'; a row whose Address cell is '(signed out)' is skipped. Assertions, each in its own 'it', each failing with a message that names the address or the row: (1) every expected address is the path of at least one row; (2) the path of every row is an expected address; (3) no two rows have the same Panel cell; (4) section 2 has, in this order, the headings '## 2. Panels', '### 2.1 The screen around a panel', '### 2.2 The panels', '### 2.3 Questions on top of a panel' and '### 2.4 The pages of the first list and what became of them', and the next heading of level 2 after them is '## 3. Data model'. The test holds no list of addresses of its own: both sides come from the files.",
+      "acceptance": {
+        "condition": "app/tests/spec-panels.test.ts exists as a new file with the four assertions. Run by the terminal in the patched tree, it passes. Each of these single changes makes it fail with a message naming the address: deleting one row of table 2.2; adding <Route path=\"/x\" element={<HomePage />} /> to App.tsx; adding a panel { id: \"extra\", name: \"Extra\" } to FLOWS.exchange.panels; changing one row's address to `/nowhere`.",
+        "method": "review",
+        "evidence": [
+          "piece8-files.zip",
+          "piece8.patch",
+          "report.md#4"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R6",
+      "requirement": "SECTION 2 OF THE SPECIFICATION, ITS FORM. In docs/spec.md replace everything from the line '## 2. Pages' up to, not including, the line '## 3. Data model' by a section with exactly these five parts in this order, and change the words 'page list' on line 3 to 'panel list'; change nothing else in the file. PART 1, the heading '## 2. Panels' and an introduction of 3 to 6 sentences: the screen is a thin top line, the list of rates on the left and one panel in the middle; this section lists the panels as the code has them on 2026-10-12; the plan and its record are `docs/design-2026-10-08-one-panel.md`; `app/tests/spec-panels.test.ts` fails when a route has no row in 2.2 or a row has no route; where sections 4 to 7 name a page of the first list, table 2.4 says which panel holds it now. PART 2, '### 2.1 The screen around a panel': 8 to 14 bullets, each naming its source file in backticks, that say: what the top line holds; the list of rates and what choosing a currency's code, its Buy and its Sell does; the stage row; the rule of the keys (a key for everything, shown in a cap; Ctrl with the number from anywhere; a number does not move while a panel is up; at most ten keys); what Enter, Esc, Tab, Ctrl with Enter, Ctrl with the left arrow and Ctrl with the up arrow do; that what is typed survives a reload of the page and where it is kept; that a list keeps its text and its page in its address; how the matches under a find box are marked and taken; what changes in a window narrower than the width at which the list of rates folds into a button (give the width from the code). PART 3, '### 2.2 The panels': one table, R7. PART 4, '### 2.3 Questions on top of a panel': a table with the header '| Question | Asked when | 1 | 2 |' and one row for every <Question element in app/src/web: its title as the cashier reads it (a variable part in capitals), when it comes up, and the words of its two answers; under the table one sentence that 1 and Esc leave things as they are. PART 5, '### 2.4 The pages of the first list and what became of them': R8.",
+      "acceptance": {
+        "condition": "In the patched docs/spec.md the five headings stand in this order with exactly these texts, line 3 says 'panel list', and a diff against the snapshot shows changes only on line 3 and between the old lines '## 2. Pages' and '## 3. Data model' (the terminal checks this from the patch). Part 2 has 8 to 14 bullets, each with a file in backticks that exists. Part 4 has one row per <Question element (the terminal counts them with grep).",
+        "method": "review",
+        "evidence": [
+          "piece8.patch",
+          "piece8-files.zip",
+          "results"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R7",
+      "requirement": "SECTION 2.2, THE PANELS. The table has the header '| Panel | Address | For | What it asks or shows | Keys |' and one row per panel. WHAT A ROW IS: a panel is a state of the screen with its own title or question. List in results.panels every <Panel element in app/src/web outside tutorial, with file and line. Elements that draw the same title for the same purpose (a loading or an error state of one panel) share a row; an element whose title depends on a state (for example a title that says 'Add to' in one state and 'Take from' in another) gets one row for each state. Add a row for every screen drawn without <Panel: check app/src/web/pages/Login.tsx (the sign-in) and app/src/web/pages/Receipt.tsx. ORDER OF THE ROWS: the sign-in; Home; First steps; the panel behind a currency and Rate history; then the choices of Home in the order of HOME in app/src/web/flows.ts, each with its panels in the order a cashier meets them (a deal's panel and the receipt belong to Find a deal); under Business the choices in the order of BUSINESS; under Set up the choices in the order of SET_UP. THE CELLS. Panel: the title or question as the cashier reads it, in double quotes, a variable part in capitals (\"What do you want to do with CODE?\"), followed in parentheses by the name the stage row gives the panel when that differs. Address: in backticks, the route path as App.tsx writes it, with ':panel', ':statement', ':name' and ':group' written out as their values, one row per value, exactly as R5 expands them, and ':id' and ':code' left as written; then, still inside the backticks, the query that selects this panel when it has one (for example `/team?new=1`, `/kiosk?branch=ID&show=pending`), a variable value in capitals; when the panel is a state of that address with no address of its own, the word (view) after the closing backtick. The sign-in row has (signed out) and no backticks. For: 'everyone', 'administrator', or the condition in a few words, read from the guards of the routes in App.tsx, from SET_UP and setUpFor in flows.ts and from the panel's own code. What it asks or shows: one or two sentences in the screen's own words saying what is read there and what is decided there; name the note 'How this is calculated' where the panel has one. Keys: every numbered thing in the order of its number, as '1 name, 2 name', with the words its cap stands beside; '0' is the tenth key; a place held for a thing that is away is written '(4 held for NAME)'; a run of list rows is written '2–7 the rows'; then what Enter does and where Esc leads, a few words each; 'none' where nothing is numbered. The numbers are read from the usePicks or numberPicks call of that panel; results.panels gives its file and line as keys_source. What differs by role is said in the cell (for example 'a cashier has 1 only'). No two rows have the same Panel cell: where two panels carry the same title, the later one is told apart by words in parentheses (for example the name of its flow). One <Panel element can be drawn at several addresses (the panels an exchange and a transfer share): it then has a row for each address, and its entry in results.panels names all of them in spec_rows.",
+      "acceptance": {
+        "condition": "results.panels has one entry for every <Panel element of the patched app/src/web outside tutorial (the terminal counts them with grep), each with file, line, spec_rows (the exact text of the Panel cell of every row it is drawn for) and keys_source. Every row of table 2.2 is named by at least one entry of results.panels or is the sign-in or the receipt row. For 15 rows chosen by the terminal, every number, word and address of the row agrees with the code at the given lines. The rows stand in the order required.",
+        "method": "review",
+        "evidence": [
+          "piece8-files.zip",
+          "results",
+          "report.md#5"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R8",
+      "requirement": "SECTION 2.4, NOTHING OF THE FIRST LIST LOST. Directly under the heading stands the sentence that explained the tags in the snapshot ('Tag: **Clone** = build as seen. **Adapt** = build with the change noted. **Skip** = not built.'), unchanged, followed by one sentence that the tags are those of the first list, written before the screens were rebuilt as panels. Then a table with the header '| Page | Route | Content | Tag | Now |' and one row for every row of the table that section 2 held in the snapshot, in the same order, with the first four cells byte-identical to the snapshot. The cell Now names the panel or panels of table 2.2, by the text of their Panel cell, that hold today what the page held; or says 'Not built.' or 'Gone.' followed by the reason in one sentence, read from the code, from section 7 of docs/spec.md and from section 10 of the plan (which says, for example, when the Currency Rates page went and what shows its content now). Where a part of a page's Content has no place in any panel, say which part in that cell and enter it in results.code_vs_docs_differences: it may be something the rebuild lost.",
+      "acceptance": {
+        "condition": "For every table row between '## 2. Pages' and '## 3. Data model' of the snapshot's docs/spec.md there is a row in table 2.4 that begins with the same four cells, byte for byte, in the same order (the terminal checks this by script). Every Now cell either names Panel cells that exist in table 2.2 or begins with 'Not built.' or 'Gone.'.",
+        "method": "review",
+        "evidence": [
+          "piece8-files.zip",
+          "report.md#5",
+          "results"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R9",
+      "requirement": "README.md. (a) Directly after the paragraph under the heading '## Status (2026-10-07)', which ends with 'transactions, the reports and the ledger.', add an empty line and one new paragraph of at most 9 lines that begins 'Since then, as of 2026-10-12:' and says: the tutorial of step 8 has lessons 1 to 6 of 13, and lessons 2 to 6 are paused until piece 9; step 9, the screens rebuilt one panel at a time, has pieces 1 to 8 of 9 built: every screen is a panel, everything is operable by the keyboard alone, the leftovers of the old page shell are removed and section 2 of `docs/spec.md` is the list of panels; what is left of step 9 is piece 9, the tutorial lessons rewritten for the panels, which waits for Sina's go. (b) Under 'Proposed, not yet confirmed:' correct every sentence that names a screen the snapshot no longer has, keeping what the sentence decides. The terminal knows three: 'the left panel and the Currency Rates page read the latest completed offers' (there is no Currency Rates page; the list of rates on the left, the panel behind a currency and its Rate history read them); 'on the Currencies page' (it is the currency's panel, under Set up, Currencies); 'The Dashboard opens first after signing in.' (Home opens first; the figures the Dashboard showed are behind Business; the one-panel decision of 2026-10-08 in the Decisions table changed it). Search that list for others (the words page, tab, form, Dashboard, screen) and treat each the same way, or say in report.md section 6 why it stays. (c) In the roadmap, row 9, cell Status: change 'Pieces 1 to 7 of 9 built' to 'Pieces 1 to 8 of 9 built'; replace its last sentence, 'Next: piece 8, what is left of the old shell, and the panel list in `docs/spec.md`', by a sentence that begins 'Piece 8 (2026-10-12):' and names what went (the shell's own Esc with its list of panel addresses, three unused shared parts, the last page file, and in a few words anything R3 removed) and that section 2 of `docs/spec.md` is now the list of panels, tied to the routes by a test; then the sentence 'Next: piece 9, the tutorial lessons rewritten for the panels, on Sina's go'. The row stays on one line and nothing else in it changes. Everything named under PROTECTED TEXT stays byte-identical.",
+      "acceptance": {
+        "condition": "The patch for README.md has hunks only at the three places (a), (b), (c); every protected line is unchanged (the terminal checks this from the patch). The new paragraph begins with the given words and has at most 9 lines. The three known sentences are corrected as described. Row 9 is one line, says 'Pieces 1 to 8 of 9 built', and ends with the two sentences required. report.md section 6 gives every changed sentence as before and after.",
+        "method": "review",
+        "evidence": [
+          "piece8.patch",
+          "piece8-files.zip",
+          "report.md#6"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R10",
+      "requirement": "app/README.md, from the heading '## What exists' to the end of the file. (a) The heading becomes '## What exists (roadmap steps 2 to 9)'. (b) In the bullet that begins 'The screen (being rebuilt one panel at a time', the words in parentheses become: rebuilt one panel at a time, plan and record in `../docs/design-2026-10-08-one-panel.md`; pieces 1 to 8 of 9 are built: every screen is a panel and nothing of the old page shell is left; the list of panels is `../docs/spec.md` section 2. (c) The two bullets about Settings become one that loses no fact of either. (d) 'Every page that shows a worked-out value' becomes 'Every panel that shows a worked-out value'. (e) In the Tutorial bullet, say that lessons 2 to 6 were written for the pages of before and are listed as \"Being rebuilt\" (`paused` in the lessons file) until they are rewritten for the panels in piece 9, and cannot be started meanwhile; keep the list of what each lesson is. (f) Read every other sentence from that heading to the end against the code: a sentence that the snapshot contradicts is corrected with the smallest change; a sentence that is true stays byte-identical. (g) After the patch, every path in backticks that names a file under src/ or tests/ in app/README.md from that heading on, and every path in backticks that this call adds to or changes in either README file, exists in the patched tree (paths in app/README.md are counted from app/).",
+      "acceptance": {
+        "condition": "The patch for app/README.md has no hunk above the heading '## What exists'. Changes (a) to (e) are made as described; one bullet about Settings remains and holds every fact of the two. Every path named in (g) exists in the patched tree (the terminal checks this by script). report.md section 6 gives every changed sentence of app/README.md as before and after, with the file and line of the code that shows why.",
+        "method": "review",
+        "evidence": [
+          "piece8.patch",
+          "piece8-files.zip",
+          "report.md#6"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R11",
+      "requirement": "THE PLAN'S RECORD OF PIECE 8. Append to the very end of docs/design-2026-10-08-one-panel.md, after one empty line, a block in the form of the block that begins '**Piece 7, 2026-10-09**': a first paragraph that begins exactly with '**Piece 8, 2026-10-12** (the clear-out by Opus on Sina's \"go\" of 2026-10-09; its audit, the tests and the documents by an outside call on his word of 2026-10-12).', then bullets, each beginning with a few words in bold, that say: (1) what went from App.tsx (isPanel, up, the shell's Esc) and why no screen changes, with the count of routes read from your table of R2; (2) what went from ui.tsx (PageHeader, Toggle, ExportCsv) and that Export CSV itself stays in three places, each named with its key; (3) that pages/Collect.tsx is gone and its four declarations are in shown.ts; (4) everything else R3 removed, each thing named, or that nothing else was found; (5) what stays on purpose until piece 9: AddressOfBefore for '/exchange?tab=...', the redirect '/business/figures', the paused lessons of the tutorial; (6) that the Currency Rates page had already gone in piece 1, as this section says above; (7) the two new test files and what each holds; (8) that section 2 of docs/spec.md is the list of panels and which test ties it to the routes; (9) the differences found between this document and the code (R17), each in one line, with the code left as it is. The block makes no statement about a type check, a test run or a walk; the terminal adds that. No existing line of the file changes.",
+      "acceptance": {
+        "condition": "The patch for docs/design-2026-10-08-one-panel.md is one hunk at the end of the file that only adds lines (the terminal checks this from the patch). The block begins with the given words and has the nine bullets in this order; every name in it exists in the patched tree or is named as removed in results.removed or in the supplied diff; it holds no statement about checks.",
+        "method": "review",
+        "evidence": [
+          "piece8.patch",
+          "piece8-files.zip"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R12",
+      "requirement": "WHAT WAS RUN. Record in run-log.txt, in this order, each command as a line '$ COMMAND' with the folder it ran in, then its complete unedited output, then a line 'exit: N'. First 'node --version', 'npm --version' and 'uname -a'. Then in base/app: 'npm ci', 'npx tsc --noEmit', 'NODE_ENV=test npx vitest run --maxWorkers=5'. Then the same three in work/app after all your changes. Then, in a fresh copy of base turned into a git repository with one commit: 'git apply --check -p1 piece8.patch', 'git apply -p1 piece8.patch' and 'git status --short'. If a command cannot run, record its attempt and output, do not run the commands that depend on it, and write one line that says which were not run. Mirror every command in results.commands with ran, exit_code and a one-line outcome.",
+      "acceptance": {
+        "condition": "run-log.txt holds, for every command listed, either its complete output with an exit line, or the line that says it was not run and why. results.commands has an entry for each. No file of the delivery says that a check passed whose output is not in run-log.txt. The terminal repeats the type check, the suite and 'git apply --check' on its own machine; a difference from run-log.txt is a defect of this requirement.",
+        "method": "review",
+        "evidence": [
+          "run-log.txt",
+          "results"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R13",
+      "requirement": "A TEST THAT CAN FAIL. For each of the two new test files, show that it fails when it should. For app/tests/shown.test.ts: change 'days > 1' to 'days >= 1' in expiryText, and separately change 'days <= 0' to 'days < 0' in createdText. For app/tests/spec-panels.test.ts: the four changes named in the acceptance of R5. Make each change alone in a scratch copy, run that one test file, record command and output in run-log.txt under a heading 'Mutations', and undo it. Enter each in results.mutations with ran and failed_as_expected. If you cannot run tests, enter each with ran false and say in one sentence which assertion would fail and why. None of these changes is in the patch.",
+      "acceptance": {
+        "condition": "results.mutations has the six entries. For each with ran true, run-log.txt shows the failing output and the name of the failing test. None of the six changes appears in piece8.patch. The terminal repeats the six on its own machine and each fails.",
+        "method": "review",
+        "evidence": [
+          "results",
+          "run-log.txt"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R14",
+      "requirement": "THE PATCH. piece8.patch is one unified diff in git format of everything you changed, made by a tool from base/ and work/, with file headers '--- a/PATH' and '+++ b/PATH' where PATH is counted from the repository root (the snapshot's folder netexchange/ is not part of PATH); a new file has '--- /dev/null'; a deleted file has '+++ /dev/null'. It applies to the snapshot with 'git apply -p1' run in the repository root, with no fuzz and no rejected hunk. It touches only: docs/spec.md; docs/design-2026-10-08-one-panel.md; README.md; app/README.md; the files directly in app/src/web/ with the ending .ts or .tsx; the files in app/src/web/pages/; and the two new files app/tests/shown.test.ts and app/tests/spec-panels.test.ts. It holds no change of file mode, no binary content, and no hunk that only changes white space.",
+      "acceptance": {
+        "condition": "Run by the terminal in a clean copy of the snapshot, 'git apply --check -p1 piece8.patch' exits 0. Every path in the patch is an allowed path. No hunk changes a protected line. A hunk-by-hunk reading finds no change that no requirement asks for.",
+        "method": "review",
+        "evidence": [
+          "piece8.patch"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R15",
+      "requirement": "THE FILES IN FULL. piece8-files.zip holds, at its path from the repository root, the complete text of every file the patch adds or changes, and at its root a file DELETED.txt with the repository path of every file the patch deletes, one per line, or the single word 'none'. Nothing else is in the zip. results.files_changed lists every added, changed and deleted path with 'change', with 'base_sha256' as SNAPSHOT_SHA256.txt gives it (null for an added file) and with 'new_sha256' of the delivered file (null for a deleted file).",
+      "acceptance": {
+        "condition": "Applying piece8.patch to the snapshot gives, for every changed or added path, a file with the same SHA-256 as the one in piece8-files.zip and as new_sha256 in results.files_changed; every base_sha256 equals the line of SNAPSHOT_SHA256.txt; DELETED.txt agrees with the patch (the terminal checks all of this by script).",
+        "method": "review",
+        "evidence": [
+          "piece8-files.zip",
+          "piece8.patch",
+          "results"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R16",
+      "requirement": "THE REPORT. report.md has exactly these sections, numbered so: '## 1 Audit of the clear-out'; '## 2 Esc on every address'; '## 3 Further leftovers'; '## 4 The two tests' (the cases, where your reading of the code differed from the terminal's, the mutations); '## 5 The panel list' (how the rows were found, every row you were not sure of and why, the rows of 2.4 whose content has no panel); '## 6 Documents' (every changed sentence of README.md and app/README.md as before and after); '## 7 Where documents and code differ' (R17); '## 8 What was run and what was not'; '## 9 Outside this call, for the owner' (what you saw and did not change because it would change what a user can do, lies outside the allowed paths, or needs his decision). Facts you observed in the files, what you inferred, and what you do not know are marked as such. No section is padded; a section with nothing to say says so in one sentence.",
+      "acceptance": {
+        "condition": "report.md has the nine headings with these exact texts in this order. Each section holds what its requirement asks for. Statements are marked as observed, inferred or unknown where that is not plain from the evidence beside them.",
+        "method": "review",
+        "evidence": [
+          "report.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R17",
+      "requirement": "WHERE DOCUMENTS AND CODE DIFFER. While reading every panel for R7, compare the code with what section 10 of the plan, the two README files and the comments above the code say about that panel: the number of a key, what it does, a title, an address, who may use it, a string the code is said to produce. Enter every difference in results.code_vs_docs_differences with the document and its place (file and line or section), the place in the code (file and line), and the difference in one sentence; add what 2.4 found to have no panel. Do not change code to match a document. In the three documents this call edits, the new text follows the code; the plan's existing lines stay as they are and the difference goes into its new block (R11, bullet 9).",
+      "acceptance": {
+        "condition": "results.code_vs_docs_differences is present; each entry has a document place and a code place that the terminal can open and that show the difference stated. report.md section 7 says how the comparison was done and for which panels, so that 'no difference found' can be told from 'not compared'.",
+        "method": "review",
+        "evidence": [
+          "results",
+          "report.md#7"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R18",
+      "requirement": "THE MAIN JSON. The 'results' object of the response has the form of the result schema of this job and is filled completely: summary; clearout_verdict; defects; routes (R2); panels (R7); removed and unused_api_members (R3); files_changed (R15); commands (R12); mutations (R13); code_vs_docs_differences (R17).",
+      "acceptance": {
+        "condition": "The 'results' object validates against the result schema of this job.",
+        "method": "json-schema",
+        "evidence": [
+          "results"
+        ],
+        "reviewer": "mechanical"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "piece8.patch",
+      "description": "One git-format unified diff of every change, made by a tool, applying to the snapshot with 'git apply -p1' from the repository root."
+    },
+    {
+      "filename": "piece8-files.zip",
+      "description": "The complete text of every added or changed file at its path from the repository root, and DELETED.txt at the root of the zip."
+    },
+    {
+      "filename": "report.md",
+      "description": "The report in nine numbered sections: audit, Esc, leftovers, tests, panel list, documents, differences, what was run, what is left for the owner."
+    },
+    {
+      "filename": "run-log.txt",
+      "description": "Every command run with its complete unedited output and exit code, and the line that says what was not run and why."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/tmp/claude-1000/-home-sina-exchange-clone/5e5b5151-195d-4802-9808-e89ebb9b7def/scratchpad/excall-piece8/netexchange-snapshot.zip",
+      "filename": "netexchange-snapshot.zip",
+      "role": "The repository as it stands: commit 31212a2 plus the uncommitted clear-out. Folder netexchange/ is the repository root. It holds app/ (the whole application with its tests), README.md, docs/spec.md and the plan docs/design-2026-10-08-one-panel.md. This is the base every change is made against and the only evidence about the code."
+    },
+    {
+      "path": "/tmp/claude-1000/-home-sina-exchange-clone/5e5b5151-195d-4802-9808-e89ebb9b7def/scratchpad/excall-piece8/piece8-clearout.diff",
+      "filename": "piece8-clearout.diff",
+      "role": "The uncommitted change that the snapshot already contains, as 'git diff HEAD' printed it. It is the thing to audit in R1 and R2; it shows the removed code, which the snapshot no longer has. Do not apply it again."
+    },
+    {
+      "path": "/tmp/claude-1000/-home-sina-exchange-clone/5e5b5151-195d-4802-9808-e89ebb9b7def/scratchpad/excall-piece8/SNAPSHOT_SHA256.txt",
+      "filename": "SNAPSHOT_SHA256.txt",
+      "role": "SHA-256, size and path of every file of the snapshot, for base_sha256 in results.files_changed and for checking that nothing was altered on the way."
+    }
+  ],
+  "stop_condition": "Stop when the four artifacts and the main JSON are delivered. Deliver COMPLETE only if every requirement is MET with its evidence. If a command of R12 or R13 could not run, deliver PARTIAL with those criteria UNKNOWN and everything else done: do not withhold the patch and the documents because the suite could not run. Deliver BLOCKED only if the snapshot cannot be read. If a needed change lies outside the allowed paths, would change what a user can see or do, or needs the owner's decision, do not make it: describe it in report.md section 9 and go on. Do not start piece 9, do not propose a redesign, and do not go on to work this job does not name.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary",
+      "clearout_verdict",
+      "defects",
+      "routes",
+      "panels",
+      "removed",
+      "unused_api_members",
+      "files_changed",
+      "commands",
+      "mutations",
+      "code_vs_docs_differences"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string",
+        "minLength": 1
+      },
+      "clearout_verdict": {
+        "enum": [
+          "SOUND",
+          "DEFECT_FOUND"
+        ]
+      },
+      "defects": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "file",
+            "line",
+            "description",
+            "fixed_in_patch"
+          ],
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer"
+            },
+            "description": {
+              "type": "string"
+            },
+            "fixed_in_patch": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "routes": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "path",
+            "kind",
+            "component",
+            "shell_esc_was_reachable",
+            "esc_handler",
+            "esc_goes_to"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "panel",
+                "redirect"
+              ]
+            },
+            "component": {
+              "type": "string"
+            },
+            "shell_esc_was_reachable": {
+              "type": "boolean"
+            },
+            "esc_handler": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "esc_goes_to": {
+              "type": "string"
+            },
+            "views": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "panels": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "file",
+            "line",
+            "spec_rows",
+            "keys_source"
+          ],
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer"
+            },
+            "spec_rows": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "keys_source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "removed": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "what",
+            "file",
+            "search_command",
+            "search_output"
+          ],
+          "properties": {
+            "what": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "search_command": {
+              "type": "string"
+            },
+            "search_output": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "unused_api_members": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "file",
+            "line"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "files_changed": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "path",
+            "change",
+            "base_sha256",
+            "new_sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "change": {
+              "enum": [
+                "added",
+                "modified",
+                "deleted"
+              ]
+            },
+            "base_sha256": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "new_sha256": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "commands": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "command",
+            "cwd",
+            "ran",
+            "exit_code",
+            "outcome"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "ran": {
+              "type": "boolean"
+            },
+            "exit_code": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "outcome": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "mutations": {
+        "type": "array",
+        "minItems": 6,
+        "items": {
+          "type": "object",
+          "required": [
+            "test_file",
+            "change",
+            "ran",
+            "failed_as_expected"
+          ],
+          "properties": {
+            "test_file": {
+              "type": "string"
+            },
+            "change": {
+              "type": "string"
+            },
+            "ran": {
+              "type": "boolean"
+            },
+            "failed_as_expected": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "code_vs_docs_differences": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "document_place",
+            "code_place",
+            "difference"
+          ],
+          "properties": {
+            "document_place": {
+              "type": "string"
+            },
+            "code_place": {
+              "type": "string"
+            },
+            "difference": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

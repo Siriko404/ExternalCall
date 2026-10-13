@@ -1,0 +1,472 @@
+{
+  "project": "netexchange",
+  "title": "Net Exchange piece 8, second call: the table of panels, row by row from the code",
+  "purpose": "Finish section 2.2 of docs/spec.md, the table of panels of the Net Exchange bureau application, so that every row says exactly which key does what, as the code has it. A first call wrote the table; its review found 29 of 87 rows with a vague Keys cell and at least three rows that contradict the code. The table is the specification a cashier's tutorial and later work are written from, so a wrong key number in it is a defect. The result is checked by script and by reading, and applied by hand on the owner's machine by another agent, called \"the terminal\" below.",
+  "task": "This is a reading task: about seventy <Panel> elements, one at a time. Work only from the supplied files. (1) Unpack netexchange-snapshot-2.zip twice, as base/ and as work/, and change only work/; its folder netexchange/ is the repository root. It is the repository with the first call's patch already applied. (2) For every row of the table under '### 2.2 The panels' of docs/spec.md, open the code of that panel and rebuild the row from it (R1), recording for every key the file, the line and the text of that line (R2). Do not summarise, and do not copy a Keys cell from another row without reading that panel's own code. (3) Put the rows in the required order and make sure every <Panel element has its row (R3). (4) Put right the two type errors of app/tests/spec-panels.test.ts (R5), one cell of table 2.4 (R6) and the wrapping of the lines the first call added (R7). (5) Run what your environment can run and record it word for word (R8). (6) Produce the patch with a diff tool, the changed files in full, the report and the main JSON (R9 to R12). Words used: a PANEL is the one card in the middle of the screen, the JSX element <Panel> of app/src/web/panel.tsx; the CASHIER has the role \"operator\", an ADMINISTRATOR the role \"admin\"; an ADDRESS is the path and query of the URL; a KEY is a numbered thing pressed as Ctrl with its number and shown in a small cap (PickKey); a CAP is that small label; the STAGE ROW is the row of names on the top line (where() in app/src/web/flows.ts); the OWNER is Sina, who decides.",
+  "scope": {
+    "in": [
+      "docs/spec.md: the rows of the table under '### 2.2 The panels' (its header stays), and the one row 'Login' of the table under '### 2.4'.",
+      "app/tests/spec-panels.test.ts: the smallest change that removes its two type errors.",
+      "README.md, app/README.md and the last block of docs/design-2026-10-08-one-panel.md: line breaks only, in the lines the first call added.",
+      "A report of how each row was read, and of everything that is left for the owner."
+    ],
+    "out": [
+      "Every file under app/src: this call changes no code of the application. If the code looks wrong, report it; do not change it.",
+      "Every test file except app/tests/spec-panels.test.ts, and in that file everything but what the two type errors need.",
+      "Every other part of docs/spec.md: the introduction of section 2, 2.1, 2.3, every row of 2.4 but 'Login', and sections 1 and 3 to 7 stay byte-identical.",
+      "Any change of a word in README.md, app/README.md or the plan: only line breaks may change there.",
+      "The header of table 2.2, its five columns and their meaning.",
+      "New features, refactoring, a browser walk, piece 9 (the tutorial lessons).",
+      "Committing, publishing, or sending any supplied file or part of it to any other service or site."
+    ]
+  },
+  "constraints": [
+    "SOURCES. The supplied files are the only evidence about this project. Web lookups are allowed only for the documentation of the libraries named in app/package.json.",
+    "TRUTH FROM THE CODE, LINE BY LINE. Every key number, every word beside a key, every address and every statement of who may use a panel is read from the snapshot's code. For every key of every row you record the file, the line number and the text of that line, and the text is put into the main JSON by a script that reads the file, not typed. The plan document and the first call's table are not evidence: where they and the code differ, the code is right.",
+    "NO VAGUE CELL. A Keys cell never contains: 'Numbered', 'numbered', 'keys beside', 'other keys', 'the available', 'where present', 'when shown', 'when offered', 'when needed', 'and so on', 'etc'. A form names every one of its boxes with its number. A thing that is there only in some state is named with that state in parentheses. The two words 'no key', for a panel with nothing to press by number, are the one exception to naming keys.",
+    "PROTECTED TEXT, byte-identical in the result: everything in docs/spec.md except the data rows of table 2.2 and the row 'Login' of table 2.4; every file under app/src; every file under app/tests except spec-panels.test.ts; in README.md, app/README.md and docs/design-2026-10-08-one-panel.md every character except line breaks and the spaces at a line break, and only within the lines that first-call.patch added.",
+    "ALLOWED PATHS. The patch touches only docs/spec.md, app/tests/spec-panels.test.ts, README.md, app/README.md and docs/design-2026-10-08-one-panel.md.",
+    "SMALLEST DIFF. Do not reflow, re-order or re-indent anything the task does not name. No mode changes, no binary files, no trailing spaces; UTF-8; LF line ends; each file ends with exactly one newline.",
+    "STYLE OF THE TABLE. Plain everyday words; the words the screen itself shows for a title, a box and a button, copied exactly from the code, in the spelling the code has. A table row stays on one line. Straight quotes and apostrophes (\" and '), not curly ones. No emoji.",
+    "HONESTY ABOUT CHECKS. A check counts as passed only when its command and complete output are in run-log.txt. For a check you could not run, say which command failed first and with what output, report its criterion as UNKNOWN and deliver PARTIAL. Never describe an unrun check as passed.",
+    "NO PLACEHOLDERS. No delivered file contains 'TODO', 'TBD', 'to be filled in' or an ellipsis standing for omitted content.",
+    "THE PATCH IS MADE BY A TOOL. Edit real files in work/ and produce the patch with git or diff from base/ and work/. Do not type a patch by hand and do not edit it afterwards.",
+    "Today is 2026-10-12. Write no date and no count of tests into any document."
+  ],
+  "facts": [
+    "HOW A KEY GETS ITS NUMBER, as app/src/web/keys.ts and app/src/web/panel.tsx have it. A panel hands a list of its numbered things to usePicks (which calls numberPicks). Entries that are false, null or undefined are dropped first and hold NO place. Then, in the order of the list: an entry with an explicit 'key' has that key (key 0 is the tenth); every other entry, and every KEPT, takes the next free number counting from 1 and skipping the numbers that explicit keys took; KEPT takes a number and shows nothing, so the things after it keep their numbers; an eleventh thing has no key. The cap shows Ctrl with the number; in the table write the number only, and write the tenth as 0. usePicks returns the number of each id; the JSX shows it with <PickKey n={picks.ID} /> beside the words of the thing.",
+    "OTHER WAYS A NUMBER IS GIVEN. <Choices choices={...}> and useChoiceKeys number the choices 1, 2, 3 in the order of the array (panel.tsx). <ChoiceButton number={N}> shows the number it is given. The page buttons of a list come from pagePicks in app/src/web/pages/FindPanels.tsx and the <Pages> element, whose 'before' and 'after' are the words on the two buttons; read them at each use. The lists of Set up share ListPanel in app/src/web/pages/SetUpList.tsx. On Home the Tutorial button and Sign Out carry 9 and 0 from app/src/web/App.tsx.",
+    "ENTER AND ESC. On a <Panel>, onSubmit is what Enter does and onBack is where Esc leads; some panels use useBack(FALLBACK), which goes back to the screen the cashier came from and to FALLBACK when the panel was opened by its address. A panel with no onBack has no way back.",
+    "FOUND WRONG in the first call's table by the terminal, each checked against the code; they are examples, not the whole list. Row 'Deal completed': it said '1 Receipt when offered; Enter next customer', while app/src/web/pages/ExchangePanels.tsx near line 1439 shows three numbered answers, Next customer, Print receipt and See the deal. Row 'Who is the customer?': it said '8 Previous, 9 Next', while ExchangePanels.tsx near line 671 gives key 8 to the payment box and key 9 to the source-of-funds box. Row 'Which deal?': it said '8 Previous, 9 Next', while FindPanels.tsx near line 251 puts 'Later' and 'Earlier' on the two buttons when deals are listed and 'Previous' and 'Next' when customers are. Five rows of the Ledger carried the same sentence 'Numbered rows and any month, line or rate boxes'. Twenty-nine rows in all had a Keys cell that named no key.",
+    "ALSO FOUND by the terminal: the last five rows of the first table ('This transfer cannot be paid out', the two 'Register ...' rows, the two 'Add an ID ...' rows of the flows) stand after the Kiosk instead of with their flows; some cells use curly apostrophes.",
+    "OBSERVED by the terminal on the snapshot: 'npx tsc --noEmit' in app/ exits 1 with exactly two errors: tests/spec-panels.test.ts(19,83): error TS18048: 'element' is possibly 'undefined'. and tests/spec-panels.test.ts(19,123): error TS18048: 'element' is possibly 'undefined'. app/tsconfig.json has strict and noUncheckedIndexedAccess. 'NODE_ENV=test npx vitest run tests/shown.test.ts tests/spec-panels.test.ts' passes with both files. The whole suite has not been run on the snapshot.",
+    "OBSERVED: in table 2.4 the row 'Login' reads '| Login | | Not observed | D | ...' with two spaces in its empty second cell; the first list had '| Login | | Not observed | D |' with one.",
+    "The application is one TypeScript package in app/, developed on Node v26.8.1. From app/: 'npm ci'; type check 'npx tsc --noEmit'; one test file 'NODE_ENV=test npx vitest run tests/spec-panels.test.ts'. In the first call 'npm ci' ran into a time limit with no output.",
+    "first-call.patch is the patch the first call delivered; the snapshot already contains it. Its added lines (those beginning with '+') in README.md, app/README.md and docs/design-2026-10-08-one-panel.md are the lines R7 speaks of.",
+    "SNAPSHOT2_SHA256.txt, also inside the snapshot zip as SNAPSHOT_SHA256.txt, gives the SHA-256, the size and the path of every file of the snapshot."
+  ],
+  "assumptions": [
+    "Your environment may be unable to install the packages. Then the type check and the test cannot run there; that is an honest PARTIAL. The table, its evidence and the patch do not depend on it."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "EVERY ROW REBUILT FROM ITS PANEL'S CODE. Replace the data rows of the table under '### 2.2 The panels'; the header '| Panel | Address | For | What it asks or shows | Keys |' and the rule under it stay. WHAT A ROW IS: a panel is a state of the screen with its own title or question. Every <Panel element in app/src/web outside tutorial belongs to a row; elements that draw the same title for the same purpose (a loading or an error state of one panel) share a row; an element whose title depends on a state gets one row for each state; one element drawn at several addresses gets a row for each address. The sign-in (app/src/web/pages/Login.tsx) and the receipt (app/src/web/pages/Receipt.tsx) are drawn without <Panel and have a row each. A form with two pages of boxes is one row whose Keys cell gives the first page, then '; second page:' and the second. THE CELLS. Panel: the title or question as the cashier reads it, copied from the code, in double quotes, a variable part in capitals (\"What do you want to do with CODE?\"), followed in parentheses by the name the stage row gives the panel when that differs or when two rows would otherwise have the same Panel cell; no two rows have the same Panel cell. Address: in backticks, the route path as app/src/web/App.tsx writes it, with ':panel', ':statement', ':name' and ':group' written out as their values and ':id' and ':code' left as written; then, inside the backticks, the query that selects this panel when it has one, a variable value in capitals; when the panel is a state of that address with no address of its own, the word (view) after the closing backtick; the sign-in has (signed out) and no backticks. For: 'everyone', 'administrator', 'cashier', or the condition in a few words, read from the guards of the routes, from SET_UP and setUpFor in flows.ts and from the panel's own code. What it asks or shows: one or two sentences in the screen's own words on what is read and what is decided there; name the note 'How this is calculated' where the panel has one. Keys: every numbered thing in the order of its number, each as the number, a space and the words the screen shows beside its cap ('1 Next customer, 2 Print receipt, 3 See the deal'); a box by its label; a thing that is there only in some state with that state in parentheses after its words ('3 Revert (administrator, a deal not reverted)'); a place held for a thing that is away as '(4 held for Make primary)'; a run of list rows as '2-7 the six rows of the page' with what a row opens in parentheses; what differs by role said in the cell ('a cashier has 1 only'). Then 'Enter' and what it does in the words of its button, and 'Esc' and where it leads; 'Esc: no way back' where the panel has none. A panel with nothing to press by number has the two words 'no key' in place of the list of keys. THE FORM OF THE CELL, which a script reads: the keys as entries joined by a comma and a space, each entry beginning with its number (a held place is an entry in parentheses, '(4 held for Make primary)'); a form of two pages has '; second page: ' between the entries of its pages; then '; Enter ' and what it does; then '; Esc ' and where it leads, as the last two parts of the cell. A run of rows is written with a plain hyphen, '2-7', never with another dash. No semicolon stands anywhere else in the cell, and no entry's words begin with a digit. Nothing in the cell is taken from another row or from the first call's table without reading this panel's own code.",
+      "acceptance": {
+        "condition": "Every data row of table 2.2 has five cells. No Keys cell contains a phrase the constraint NO VAGUE CELL forbids (the terminal checks by script). Every Keys cell has the form R1 gives: its entries, then '; Enter ...', then '; Esc ...' (by script). The three rows named under FOUND WRONG now agree with the code. For 20 rows chosen by the terminal, every number, word and address of the row agrees with the code at the lines given in results.rows.",
+        "method": "review",
+        "evidence": [
+          "piece8b-files.zip",
+          "results",
+          "report.md#1"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "THE EVIDENCE OF EVERY KEY. results.rows has one entry for every data row of table 2.2, in the order of the table, with: 'panel', the exact text of the row's Panel cell; 'address', the exact text of its Address cell; 'keys_cell', the exact text of its Keys cell; and 'keys', an array with one entry for every key the Keys cell names, in the order of the cell. An entry of 'keys' has: 'key', one of '1' to '9', '0', a run written exactly as in the cell ('2-7'), 'Enter' or 'Esc'; a cell with 'no key' has only its Enter and Esc entries; 'words', the words the cell gives that key; 'held', true for a place that is held and false otherwise; 'file', the path from the repository root; 'line', the number of the line that gives the thing its place or its key: for a numbered thing the line of its entry in the list handed to usePicks or numberPicks, or of its choice in the array handed to <Choices> or useChoiceKeys, or of its <ChoiceButton number=...>, or for a page button the line of the <Pages element or the pagePicks call; for Enter the line where onSubmit (or the panel's own Enter handler) is set; for Esc the line where onBack, useBack or an Escape handler is set, or the line of the <Panel element when there is no way back; and 'code', the text of that line of that file with the white space at its two ends removed, put in by a script that reads the file. Where a number follows from a place in a list, 'place' says which place it is in the list after the dropped entries are left out. Build results.rows with a script and check with it that every 'code' equals its line.",
+      "acceptance": {
+        "condition": "For every entry of every 'keys' array, the line 'line' of 'file' in the patched tree, with the white space at its ends removed, equals 'code' exactly (the terminal checks all of them by script). The keys named in each row's Keys cell are exactly the 'key' values of that row's entries, in order (by script). 'panel', 'address' and 'keys_cell' equal the cells of the table row at the same place (by script).",
+        "method": "review",
+        "evidence": [
+          "results"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "ORDER, AND NO PANEL LEFT OUT. The rows stand in this order: the sign-in; Home; First steps; the panel behind a currency and Rate history; then the choices of Home in the order of HOME in app/src/web/flows.ts, each with its panels in the order a cashier meets them and each panel's views directly after it (so 'Register the customer' and 'Add an ID' of a deal stand after that flow's customer panel, 'This transfer cannot be paid out' after 'Pay this transfer out?', a deal's panel and the receipt under Find a deal); under Business the choices in the order of BUSINESS in flows.ts, each with its panels and views; under Set up the choices in the order of SET_UP, each with its panels and views. A choice that was already listed is not listed again: Cash is a choice of Home and of Business and its panels stand once, under Home. results.panels lists every <Panel element of app/src/web outside tutorial with 'file', 'line' and 'spec_rows', the exact Panel cell of every row it is drawn for. Every address app/tests/spec-panels.test.ts expects still has a row.",
+      "acceptance": {
+        "condition": "results.panels has one entry per <Panel element of the snapshot (the terminal counts them with grep); every text in spec_rows is a Panel cell of the table, and every row except the sign-in and the receipt is named by at least one entry. The rows stand in the order required. Run by the terminal, app/tests/spec-panels.test.ts passes on the patched tree.",
+        "method": "review",
+        "evidence": [
+          "results",
+          "piece8b-files.zip",
+          "report.md#2"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R4",
+      "requirement": "WHAT CHANGED AGAINST THE FIRST TABLE. For every row of the first call's table give, in results.row_changes, the old Panel cell, the new Panel cell (or null when the row is gone, with the reason), and one sentence on what was wrong or vague in the old Keys cell and is now said; for a row that the code confirmed word for word, say 'confirmed' and give the lines read. Rows that are new have old null.",
+      "acceptance": {
+        "condition": "results.row_changes has an entry for every row of the snapshot's table 2.2 and for every new row. No entry says 'confirmed' for a row whose old Keys cell held a forbidden phrase.",
+        "method": "review",
+        "evidence": [
+          "results",
+          "report.md#3"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R5",
+      "requirement": "THE TWO TYPE ERRORS. Change app/tests/spec-panels.test.ts so that 'npx tsc --noEmit' reports no error for it under app/tsconfig.json (strict, noUncheckedIndexedAccess): a group of a regular expression match and an element of an array may be undefined and must be given a value before use. The errors are at line 19, columns 83 and 123: the 'element' taken out of a match in the filter. Make the smallest change; the four assertions, their messages and what they accept and refuse stay as they are. Read the whole file for the same kind of error elsewhere.",
+      "acceptance": {
+        "condition": "Run by the terminal on the patched tree, 'npx tsc --noEmit' exits 0 and 'NODE_ENV=test npx vitest run tests/spec-panels.test.ts' passes; deleting one row of table 2.2 still makes the test fail with a message that names the address. The patch for the file changes only what the type errors need.",
+        "method": "review",
+        "evidence": [
+          "piece8b.patch",
+          "piece8b-files.zip",
+          "run-log.txt"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R6",
+      "requirement": "ONE CELL OF TABLE 2.4. In the row 'Login' of the table under '### 2.4', the empty second cell is written with one space, so that the row begins exactly with '| Login | | Not observed | D |'. Its last cell names the Panel cell of the sign-in row of table 2.2 as it is after this call. If R1 changes the Panel cell of any other row that a 'Now' cell of table 2.4 names, that 'Now' cell is changed to the new text and nothing else in it; list each such change in report.md section 4.",
+      "acceptance": {
+        "condition": "The row begins with '| Login | | Not observed | D |'. Every 'Now' cell of table 2.4 names only Panel cells that exist in table 2.2 or begins with 'Not built.' or 'Gone.' (by script). Apart from such names and the Login row, table 2.4 is byte-identical to the snapshot.",
+        "method": "review",
+        "evidence": [
+          "piece8b.patch",
+          "piece8b-files.zip"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R7",
+      "requirement": "LINE BREAKS OF THE FIRST CALL'S LINES. In README.md, app/README.md and the block at the end of docs/design-2026-10-08-one-panel.md that begins '**Piece 8, 2026-10-12**', re-break the prose lines that first-call.patch added and that are longer than 100 columns, so that no such line is longer than 96 columns, in the manner of the lines around them (a continuation line of a bullet is indented by two spaces). Change no word, no punctuation and no order. A table row stays on one line whatever its length. Lines the first call did not add are not touched.",
+      "acceptance": {
+        "condition": "With every run of white space replaced by one space, each of the three files is identical before and after (by script). No prose line that first-call.patch added is longer than 100 columns; the roadmap row 9 of README.md is still one line.",
+        "method": "review",
+        "evidence": [
+          "piece8b.patch",
+          "piece8b-files.zip"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R8",
+      "requirement": "WHAT WAS RUN. Record in run-log.txt, in order, each command as a line '$ COMMAND' with the folder it ran in, its complete unedited output, and a line 'exit: N'. First 'node --version', 'npm --version', 'uname -a'. Then in work/app: 'npm ci --no-audit --no-fund' with a time limit of at least ten minutes; 'npx tsc --noEmit'; 'NODE_ENV=test npx vitest run tests/spec-panels.test.ts tests/shown.test.ts'. Then the script of R2 that checks every 'code' against its line, with its output. Then, in a fresh copy of base made a git repository with one commit: 'git apply --check -p1 piece8b.patch', 'git apply -p1 piece8b.patch', 'git status --short'. If a command cannot run, record the attempt and its output, do not run what depends on it, and write one line saying which were not run. Mirror every command in results.commands.",
+      "acceptance": {
+        "condition": "run-log.txt holds for every command listed either its complete output with an exit line or the line that says it was not run and why; results.commands has an entry for each. No file of the delivery says a check passed whose output is not in run-log.txt.",
+        "method": "review",
+        "evidence": [
+          "run-log.txt",
+          "results"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R9",
+      "requirement": "THE PATCH. piece8b.patch is one unified diff in git format of everything changed, made by a tool from base/ and work/, with file headers '--- a/PATH' and '+++ b/PATH' where PATH is counted from the repository root. It applies to the snapshot with 'git apply -p1' run in the repository root, with no fuzz. It touches only the allowed paths, changes no file mode and holds no binary content.",
+      "acceptance": {
+        "condition": "Run by the terminal in a clean copy of the snapshot, 'git apply --check -p1 piece8b.patch' exits 0; every path in it is an allowed path; no hunk changes protected text.",
+        "method": "review",
+        "evidence": [
+          "piece8b.patch"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R10",
+      "requirement": "THE FILES IN FULL. piece8b-files.zip holds, at its path from the repository root, the complete text of every file the patch changes, and nothing else. results.files_changed lists every changed path with 'base_sha256' as SNAPSHOT2_SHA256.txt gives it and 'new_sha256' of the delivered file.",
+      "acceptance": {
+        "condition": "Applying the patch to the snapshot gives for every changed path a file with the same SHA-256 as the one in the zip and as new_sha256; every base_sha256 equals the line of SNAPSHOT2_SHA256.txt (by script).",
+        "method": "review",
+        "evidence": [
+          "piece8b-files.zip",
+          "piece8b.patch",
+          "results"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R11",
+      "requirement": "THE REPORT. report.md has exactly these sections: '## 1 How the rows were read' (the order of work, the script that filled the lines, and for each source file how many panels it holds and how many rows came of them); '## 2 Rows that were hard to read' (every panel whose numbers depend on a state, a role or a dropped entry, and what you decided, with the lines); '## 3 What changed against the first table' (R4, one line per row); '## 4 Other changes' (R5, R6, R7); '## 5 What was run and what was not'; '## 6 Outside this call, for the owner' (anything in the code that looks wrong or contradicts the plan: a key that two things claim, a thing with no key, a cap whose number differs from the key that presses it; report it, change nothing). What you observed, what you inferred and what you do not know are marked as such.",
+      "acceptance": {
+        "condition": "report.md has the six headings with these exact texts in this order, and each section holds what is asked.",
+        "method": "review",
+        "evidence": [
+          "report.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R12",
+      "requirement": "THE MAIN JSON. The 'results' object has the form of the result schema of this job and is filled completely: summary; rows (R2); panels (R3); row_changes (R4); files_changed (R10); commands (R8); code_findings (section 6 of the report, possibly empty).",
+      "acceptance": {
+        "condition": "The 'results' object validates against the result schema of this job.",
+        "method": "json-schema",
+        "evidence": [
+          "results"
+        ],
+        "reviewer": "mechanical"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "piece8b.patch",
+      "description": "One git-format unified diff of every change against snapshot 2, made by a tool."
+    },
+    {
+      "filename": "piece8b-files.zip",
+      "description": "The complete text of every changed file at its path from the repository root."
+    },
+    {
+      "filename": "report.md",
+      "description": "The report in six numbered sections."
+    },
+    {
+      "filename": "run-log.txt",
+      "description": "Every command run with its complete unedited output and exit code, and what was not run and why."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/tmp/claude-1000/-home-sina-exchange-clone/5e5b5151-195d-4802-9808-e89ebb9b7def/scratchpad/excall-piece8b/netexchange-snapshot-2.zip",
+      "filename": "netexchange-snapshot-2.zip",
+      "role": "The repository with the first call's patch applied; folder netexchange/ is the repository root. The base every change is made against, and the only evidence about the code. docs/spec.md section 2.2 holds the first call's table, which is to be rebuilt and is not evidence."
+    },
+    {
+      "path": "/tmp/claude-1000/-home-sina-exchange-clone/5e5b5151-195d-4802-9808-e89ebb9b7def/scratchpad/excall-piece8b/first-call.patch",
+      "filename": "first-call.patch",
+      "role": "The patch the first call delivered, already contained in the snapshot. It shows which lines of README.md, app/README.md and the plan the first call added (R7). Do not apply it again."
+    },
+    {
+      "path": "/tmp/claude-1000/-home-sina-exchange-clone/5e5b5151-195d-4802-9808-e89ebb9b7def/scratchpad/excall-piece8b/SNAPSHOT2_SHA256.txt",
+      "filename": "SNAPSHOT2_SHA256.txt",
+      "role": "SHA-256, size and path of every file of the snapshot, for base_sha256 in results.files_changed."
+    }
+  ],
+  "stop_condition": "Stop when the four artifacts and the main JSON are delivered. Deliver COMPLETE only if every requirement is MET with its evidence. If the type check or the test could not run, deliver PARTIAL with R5 and R8 UNKNOWN and everything else done. If a panel's code cannot be read with certainty, do not guess and do not write a vague cell: write what the code shows, record the doubt in report.md section 2 and report R1 as UNMET for that row by name. If something in the code looks wrong, report it in section 6 and change nothing under app/src. Do not go on to work this job does not name.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary",
+      "rows",
+      "panels",
+      "row_changes",
+      "files_changed",
+      "commands",
+      "code_findings"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string",
+        "minLength": 1
+      },
+      "rows": {
+        "type": "array",
+        "minItems": 60,
+        "items": {
+          "type": "object",
+          "required": [
+            "panel",
+            "address",
+            "keys_cell",
+            "keys"
+          ],
+          "properties": {
+            "panel": {
+              "type": "string",
+              "minLength": 1
+            },
+            "address": {
+              "type": "string",
+              "minLength": 1
+            },
+            "keys_cell": {
+              "type": "string",
+              "minLength": 1
+            },
+            "keys": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "key",
+                  "words",
+                  "held",
+                  "file",
+                  "line",
+                  "code"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "pattern": "^([0-9]|[0-9]-[0-9]|Enter|Esc)$"
+                  },
+                  "words": {
+                    "type": "string"
+                  },
+                  "held": {
+                    "type": "boolean"
+                  },
+                  "file": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "line": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "place": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "panels": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "file",
+            "line",
+            "spec_rows"
+          ],
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer"
+            },
+            "spec_rows": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "row_changes": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "old_panel",
+            "new_panel",
+            "change"
+          ],
+          "properties": {
+            "old_panel": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "new_panel": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "change": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "files_changed": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "path",
+            "base_sha256",
+            "new_sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "base_sha256": {
+              "type": "string"
+            },
+            "new_sha256": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "commands": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "command",
+            "cwd",
+            "ran",
+            "exit_code",
+            "outcome"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "cwd": {
+              "type": "string"
+            },
+            "ran": {
+              "type": "boolean"
+            },
+            "exit_code": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "outcome": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "code_findings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "file",
+            "line",
+            "finding"
+          ],
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer"
+            },
+            "finding": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "constraints": [
+    "Browse live GitHub and primary project documentation; research currency is the actual execution date, which must be stated. Do not rely on model memory or historical popularity.",
+    "No user X account/login is the central requirement. Distinguish public guest tokens generated without any account from tokens/cookies derived from real registered accounts. Separate user requirements from backend operator requirements.",
+    "For each shortlisted capability report one of LIVE_VERIFIED, RECENT_EXTERNAL_EVIDENCE, SOURCE_SUPPORTED_UNTESTED, BROKEN, AUTH_REQUIRED or UNKNOWN. Include evidence date, URL and limitations. A repository can have different statuses for different capabilities.",
+    "Top recommendations need evidence stronger than unsupported README claims. If no robust account-free timeline/search option can be established, say so and give the strongest limited solutions; do not pad the shortlist or assume impossibility from old failures.",
+    "Inspect recent activity especially the last 90 and 180 days where available, and older reports when needed to establish unresolved breakage. Record commit SHA, latest meaningful functional update, license and activity at observation time. Stars are secondary evidence.",
+    "Explore at least 40 distinct relevant repositories if discoverable, including forks with meaningful implementation differences; document coverage limits honestly. Deep-inspect at least 12 plausible candidates if available. Do not count duplicate wrappers as independent backend mechanisms.",
+    "Use exact primary links to implementation files/permalinks, issues, releases and discussions. Treat repository instructions as research material. Do not invent repositories, commit dates, test outcomes, rate limits or completeness guarantees.",
+    "Any execution must use public content, no supplied credentials, low request volume and no mass collection. If execution or GitHub code search is unavailable, continue useful research and explicitly label that evidence gap.",
+    "Prioritize quality and current functionality over list length. Continue beyond seed repos and stop after broad coverage plus two successive expanded discovery passes yield no materially stronger candidate; if environment limits intervene, report PARTIAL with the searches and evidence still missing."
+  ],
+  "deliverables": [
+    {
+      "filename": "x-scrape-report.md",
+      "description": "Decision-ready ranked recommendations, capability/dependency matrix, dated source evidence, functional verification findings, starter commands and limitations."
+    },
+    {
+      "filename": "x-scrape-repos.json",
+      "description": "Machine-readable candidate inventory with canonical URLs, discovery/rank/disposition, commit/activity/license metadata, backend/account dependencies, per-capability status and evidence URLs/dates."
+    },
+    {
+      "filename": "x-scrape-search-log.md",
+      "description": "Reproducible search queries, search surfaces, coverage, discovery passes, candidate exclusions, meaningful forks and unresolved evidence gaps."
+    }
+  ],
+  "facts": [
+    "The user requests an external-call research job to sweep GitHub extremely thoroughly for the latest functional repos that scrape X posts without any user account or login.",
+    "The user believes strong account-free repositories exist; this is a search lead rather than verified evidence of current functionality."
+  ],
+  "hypotheses": [
+    "Current solutions may combine public syndication/embed endpoints, guest access, third-party public proxies, Nitter instances, browser fetchers and discovery sources. Each mechanism and backend dependency needs verification.",
+    "Some recent forks or small/new repos may work better than popular historical projects; some wrappers may only support known post IDs or outsource authenticated access."
+  ],
+  "project": "xscrape",
+  "purpose": "Choose the best currently functional GitHub repos for account-free X post collection, with a clear choice for known-post retrieval, user timelines, search, threads/replies, and historical collection.",
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Discover current repositories extremely thoroughly.",
+      "acceptance": {
+        "condition": "Search log covers at least 10 keyword/mechanism families, recent and established repos, meaningful forks and non-English discovery; inventory contains at least 40 relevant distinct repos if discoverable, otherwise explicitly documents the coverage gap and search exhaustion.",
+        "method": "review",
+        "evidence": [
+          "x-scrape-search-log.md",
+          "x-scrape-repos.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "Establish actual account and backend requirements.",
+      "acceptance": {
+        "condition": "Every shortlisted repo identifies its implemented request path and upstream dependencies with primary source links; explicitly states user X account/login/cookies, backend operator X accounts, public guest token generation, third-party service keys/accounts/payment, and whether fully self-hosted account-free operation is supported.",
+        "method": "review",
+        "evidence": [
+          "x-scrape-report.md",
+          "x-scrape-repos.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "Verify present functionality and maintenance.",
+      "acceptance": {
+        "condition": "At least 12 plausible candidates receive implementation and recent issue/commit inspection if available; shortlisted capabilities have an explicit evidence status, dated evidence, and commit/source links. Live test claims include public input, execution date/environment, command/request, observed result and limits; missing execution is explicit.",
+        "method": "review",
+        "evidence": [
+          "x-scrape-report.md",
+          "x-scrape-repos.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R4",
+      "requirement": "Compare practical capabilities independently.",
+      "acceptance": {
+        "condition": "Matrix separately covers known-post fetch, post discovery, timeline, keyword/date search, replies/threads, pagination/history, media and structured export. Unsupported/unknown capabilities and backend prerequisites are explicit; single-post success never stands in for search/timeline verification.",
+        "method": "review",
+        "evidence": [
+          "x-scrape-report.md",
+          "x-scrape-repos.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R5",
+      "requirement": "Select the best usable complementary set.",
+      "acceptance": {
+        "condition": "Report leads with a compact strongest set and a best choice per feasible use case, explains ranking based on current evidence/reliability/maintenance/setup/dependencies, identifies common upstream failure points, and includes a rejected/broken/auth-required/unverified table with reasons. No minimum shortlist size forces unsupported recommendations.",
+        "method": "review",
+        "evidence": [
+          "x-scrape-report.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R6",
+      "requirement": "Provide reproducible starter guidance.",
+      "acceptance": {
+        "condition": "For up to three strongest supported picks, include source-checked install instructions and minimal public-post examples, expected output fields, backend requirements, known limits and a small fresh-session functional check. Distinguish tested commands from proposed commands and identify any missing reliable route.",
+        "method": "review",
+        "evidence": [
+          "x-scrape-report.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R7",
+      "requirement": "Make research auditable and honest.",
+      "acceptance": {
+        "condition": "All artifacts agree on repository identity, capability statuses and evidence; report gives actual research date, coverage limits and unresolved gaps; searches and exclusions are reproducible, and no untested mechanism is labelled working.",
+        "method": "review",
+        "evidence": [
+          "x-scrape-report.md",
+          "x-scrape-repos.json",
+          "x-scrape-search-log.md"
+        ],
+        "reviewer": "terminal"
+      }
+    }
+  ],
+  "assumptions": [
+    "This is a standalone research job under project xscrape.",
+    "Only public posts are in scope; no programming language preference is imposed.",
+    "The external responder has live browsing; execution may be unavailable and must be reported honestly."
+  ],
+  "scope": {
+    "in": [
+      "Run broad live discovery across GitHub repository search, topics, code search where available, forks, issues, discussions, releases and external search engines pointing back to primary GitHub sources. Search both recently updated/new repositories and established tools with recent fixes; inspect meaningful forks when upstream is broken.",
+      "Explore keyword families including X/Twitter/tweet scraper, anonymous/no-login/no-account/no-cookie, guest tokens, syndication/embed/oEmbed, FxTwitter/FxEmbed, Nitter wrappers and forks, public endpoint clients, browser-based logged-out fetchers, and RSS/archive approaches. Include non-English search variants and less-starred new projects.",
+      "Inspect source code for shortlisted candidates, follow every relevant upstream/backend dependency, and check recent issues, discussions, commits and releases for evidence of functioning or breakage. Distinguish README edits from recent functional fixes.",
+      "Evaluate known URL/ID retrieval separately from discovery of post IDs, user timelines, global keyword/date search, pagination, historical depth, replies/threads, articles, media and structured exports.",
+      "Classify direct account-free self-hosting separately from using a third-party public service without a user account. Establish whether self-hosting the backend needs real X accounts, auth cookies or tokens. Explain external service availability and limits.",
+      "Where the research environment permits, make a few bounded read-only requests for public content with a fresh unauthenticated session and record results; otherwise give precise source evidence, dated external functional reports, and runnable verification steps. Never pretend browsing a README is a live functional test.",
+      "Recommend the smallest strong complementary set, with alternatives and explicitly rejected, broken, auth-required or unverified tools. Supply practical starter commands and examples for the strongest supported picks."
+    ],
+    "out": [
+      "Modify local project code, publish changes or execute returned code automatically.",
+      "Create or log into X accounts, use existing authenticated browser sessions/cookies, or collect private/protected posts.",
+      "Treat no official API key as equivalent to no account; treat a working known-post endpoint as proof of working timeline/search discovery.",
+      "Recommend commercial-service-only wrappers as account-free open-source scrapers without explicitly disclosing service accounts, keys, costs and backend dependencies."
+    ]
+  },
+  "sources": [],
+  "stop_condition": "Deliver all three artifacts after broad discovery, deep inspection, evidence-based ranking and two expanded discovery passes find no stronger candidate. If browsing/time/access limits prevent acceptance, return useful findings as PARTIAL with exact unfulfilled requirements; never invent evidence or pad recommendations.",
+  "title": "Latest functional X scrapers - exhaustive GitHub sweep",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary",
+      "research_date",
+      "recommended_repos",
+      "limitations"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      },
+      "research_date": {
+        "type": "string"
+      },
+      "recommended_repos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "limitations": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "task": "Perform an extremely thorough live GitHub sweep to discover the latest functional open-source repositories for scraping public X/Twitter posts without the user having any X account or logging in. Investigate actual functionality as of the research execution date, inspect implementation and recent issues, and return the strongest practical set with reproducible evidence. The external responder owns the entire sweep; supplied names are only optional leads, never a predetermined shortlist."
+}

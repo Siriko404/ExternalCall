@@ -1,0 +1,150 @@
+{
+  "project": "frontline44",
+  "title": "M8b camp shop workbench roster and T13b \u2014 isolated packet",
+  "purpose": "Implement the exact camp economy and menu interface while consuming the Call 2 progression API.",
+  "task": "Author \u00a78.10 UI/menu and transaction methods and the M8 integrated T13 arg1 test, preserving existing camp travel, T13 arg0 and M7 Build dispatch.",
+  "scope": {
+    "in": [
+      "Use existing CampInit, CampProximity, DeployToBattle, menu IDs 3 Shop/4 Workbench/5 Roster/6 Deploy and keyboard Z/X/V. Camp station open within 96 and close beyond 128; keep station menu order/selection and cursor behavior.",
+      "Shop in exact order: M1 Garand 200, Thompson 250, BAR 400, Bazooka 500, M1911 60, Clip\u00d750 30, Rockets\u00d72 60, Frag\u00d72 40, Satchel\u00d71 80, Bandage\u00d72 30. Apply FL_Stats.Price with Quartermaster modifier, refuse owned gun/hands full/over CapKg/insufficient funds and give exact messages.",
+      "Workbench for readied gun index 0\u20137: Recoil/Magazine/Damage level 0..3, next step k costs 100*k supplies and 2*k parts (atomic), then six crafts: Bandage\u00d72 (2 parts), Clip\u00d740 (2), Frag\u00d71 (3), Rocket\u00d71 (4), Satchel\u00d71 (5), Sling for readied long gun once/gun (4).",
+      "Roster: Recruit 100 if roster < FL_Stats.Slots (name cycle in Items.zs), then ten skills via Call 2 M8A_BuySkill indices 0..9, four free classes via Call 2 M8A_SelectClass IDs 1..4; do not duplicate business logic. Deploy menu calls existing DeployToBattle/GiveKit path.",
+      "Supply T13 arg1 independent setup/tick and assertions: exact XP\u2192level threshold, each skill, each shop entry, each upgrade progression, each recipe/sling, plus refusals/recruit/class/kit as feasible. Preserve all existing T13 arg0 34 formula checks and one FL_TEST verdict per test case."
+    ],
+    "out": [
+      "Own progression logic or attribution (Call 2), kill loot (Call 3), buildings (Call 1), packaging (Call 5), entire Handler/Tests/Tuning rewrites."
+    ]
+  },
+  "constraints": [
+    "Use only the specifically supplied source files. source_001_FRONTLINE44_SPEC.md controls, including the approved \u00a78.6 debut reservation. Distinguish verified source facts from untested engine hypotheses.",
+    "Parallel source authoring only; the operator alone integrates in M7\u2192M8\u2192M9\u2192M10 order, repairs compiler/API faults, runs the engine, accepts milestones and ships. No engine is assumed available to this call; never claim that load or any test PASS was executed.",
+    "ZScript only for gameplay; all custom files under frontline/; no donor code modifications; FL_ custom class prefix and fl_ CVar prefix; every newly introduced production number other than 0/1 must be declared in FL_T. Do not weaken tests or change existing PASS semantics.",
+    "Preserve M0\u2013M6 baselines and T1\u2013T11/T13 arg0/T16; no whole-file Handler.zs, Tests.zs, Tuning.zs, zscript.zs, mapinfo.txt or keyconf.txt rewrites. A parallel implementation must provide method-only fragments and a machine-readable hooks.json for operator application.",
+    "Frozen-source status conflict: source_002 claims M6/T10 PASS while source_012 records T10 FAIL and source_016 was an unrun proposal. Treat current M6 verification as an operator preflight gate, not a proved PASS; never change director economics within this job.",
+    "Result is inert code; report unverified ZScript signature assumptions as PARTIAL/BLOCKED and provide diagnostics. Do not silently add game features, implement test-only cheats, relax thresholds or edit donor code.",
+    "Use only new M8C_FillShopMenu/M8C_FillWorkbenchMenu/M8C_FillRosterMenu and M8C_ChooseShop/M8C_ChooseWorkbench/M8C_ChooseRoster handler methods (plus unique private helpers). No new EventHandler overrides.",
+    "Handler.RebuildMenu needs menuId 3,4,5 branches and keeps 1,2,6; Handler.MenuChoose needs menuId 3,4,5 branches and keeps 1,2,6; Handler.RenderOverlay titles for Shop/Workbench/Roster. Integrator alone adds these hooks after Call 1 M7 branch.",
+    "Existing Tests.SetupT13 and TickT13 currently reject any arg !=0. Supply precise hook: if fl_testarg==1 route to M8C_SetupT13b/M8C_TickT13b; arg0 executes unchanged previous formulas; other args still FAIL. No second test-handler override.",
+    "Transactions debit currency only if delivery/upgrade succeeds; shop gun actions must honor existing FL_Weapon.CanPickup not spawn directly into carried inventory bypassing hands/weight checks. Use existing FL_Upgrades indices; do not change source_010_Stats formulas.",
+    "At time of writing assume Call 2 exact M8A_BuySkill/M8A_SelectClass API; report any unavoidable cross-call contract mismatch BLOCKED (operator resolves at merge, not by this implementer)."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Deliver exact camp economy operations",
+      "acceptance": {
+        "condition": "Shop 10 entries, Workbench 3+6 menu layout and pricing/resources/limits, Roster 1+10+4 options and deploy kit interact with real inventory/upgrade records.",
+        "method": "review",
+        "evidence": [
+          "call-4-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "Implement true integrated T13b without changing T13a",
+      "acceptance": {
+        "condition": "T13 arg1 checks all specified exact deltas through production methods and Call 2 API; T13 arg0 retains 34 known assertions; test verdict within 1500 tics, no spoofing.",
+        "method": "review",
+        "evidence": [
+          "call-4-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "Merge safely with build and loot features",
+      "acceptance": {
+        "condition": "All menu branches/titles scoped to IDs 3\u20135; no overwritten M7 menuId2, no second entrypoint, tuning fragments only and clear load+T13a/b+T14+T12 regression checklist.",
+        "method": "review",
+        "evidence": [
+          "call-4-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "call-4-packet.zip",
+      "description": "ZIP containing README-integration.md (exact hooks/assumptions), owned/ (only exclusively owned complete files), fragments/ (Handler method definitions, Tuning FL_T member declarations, TestHandler methods as relevant), hooks.json (ordered records with id/file/unique anchor/operation/payload/before_or_after/depends_on/expected_match_count=1), verification.md (unexecuted compilation and exact-test checklist), limitations.md. Include diffs against each owned baseline. No entire shared-file replacement or unapproved changes."
+    },
+    {
+      "filename": "call-4-t13b-oracle.md",
+      "description": "Per-transaction exact expected pre/post supplies, parts, XP, SP, weapon/ammo/skill/upgrade inventory and edge cases."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/home/sina/Downloads/FRONTLINE44_SPEC.md",
+      "role": "Authoritative game/spec \u00a70, \u00a75, \u00a78.7, \u00a711 T12, \u00a713 and \u00a712."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/SPLIT_DESIGN_BRIEF.md",
+      "role": "Five-call model, done milestones and integration assumptions."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Handler.zs",
+      "role": "Read-only shared handler baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tests.zs",
+      "role": "Read-only shared harness baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tuning.zs",
+      "role": "Read-only FL_T baseline; publish constants fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Weapons.zs",
+      "role": "Weapon/drop/projectile implementations and gun index contracts."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Player.zs",
+      "role": "Player/camp/class and damage hooks; do not rewrite."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Items.zs",
+      "role": "Current inventories, parts pickup and upgrade/roster records; exclusive Call 3 edit path."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Stats.zs",
+      "role": "Existing FL_Stats formulas; do not change PASS T13a."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Soldiers.zs",
+      "role": "Tier/rank, squad flags and hostile types."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/BUILD_LOG.md",
+      "role": "Historical outcomes; T10 baseline conflict must be acknowledged."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/DECISIONS.md",
+      "role": "Binding previous integration decisions/limitations."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/TEST_SPEED_EVIDENCE.md",
+      "role": "Actual test/run constraints, solo engine and kill-on-verdict."
+    },
+    {
+      "path": "/home/sina/Work/ExternalCall/examples/repository_audit.job.json",
+      "role": "Template defining job JSON style and required keys."
+    }
+  ],
+  "stop_condition": "Deliver call-4-packet.zip and exact T13b oracle; leave uncompiled/unrun cases explicitly UNVERIFIED.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      }
+    }
+  }
+}

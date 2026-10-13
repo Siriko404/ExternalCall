@@ -1,0 +1,1010 @@
+{
+  "project": "codeanatomy",
+  "title": "Code Anatomy build call 4: five route adapters, from program start to handler",
+  "purpose": "Extend the package from build call 3 so that the map sees through five web frameworks: Flask, chi, Spring Web, axum and the Next.js pages router. Each adapter finds the server, its routes with full paths and methods, and the handler of each route, and joins the server to the function that starts it. After this call every one of the six pinned repositories has a flow that runs from the outside world, or from main, to a route handler and on into what the handler calls. The owner's goal is a tool that shows how an entire codebase flows, step by step. The result is tested by running the supplied acceptance script on the owner's machine, not by reading it.",
+  "task": "Read BUILD_4_BRIEF.md first, then the kit's README, expected rows and five new fixtures, then ENVIRONMENT_FACTS.md section 8, then the earlier briefs for everything the new one does not change. Extract base-codeanatomy-pipeline.tar.gz and change it as BUILD_4_BRIEF.md sections 4 and 5 require: the whole-map line and the version (U12, U13), the common shape of a route adapter and the join (U01-U06), the five adapters in the order Flask, chi, Spring Web, axum, Next.js (U07-U11), housekeeping (U14, U15). Work in the order of the brief's floor, finishing each part and each adapter before the next. Install the supplied wheels and grammars in your sandbox, run your tests, then run owner-kit/tools/owner_checks4.sh on your result and paste its complete output into TEST_LOG.md. Deliver the full source tree as one tarball, version 0.4.0, with the five report files beside it.",
+  "scope": {
+    "in": [
+      "BUILD_4_BRIEF.md section 5 in full, with the floor and the complete-or-absent rule of its section 3.",
+      "One module per adapter under src/codeanatomy/adapters/ and one registry line each; at most one further module there for code the adapters share.",
+      "The join in the existing MCP adapter, the new figure rule in scripts/demo_e2e.sh, the Whole map line in the brief, run.json, README.md, RUNBOOK.md, and existing tests whose asserted values this brief replaces.",
+      "Writing ADAPTER_RULES.md: per adapter the proof by import, every form read, prefixes, handlers, the start statement, what is marked, the rule names used in basis strings, the test that covers each, and the limits.",
+      "Copying the kit's five new fixtures, routes.json, the changed corpus.json and check_routes.py into the package's own tests, naming their origin, and writing the tests of BUILD_4_BRIEF.md section 7.",
+      "Running the owner's acceptance script in your sandbox and reporting its real output, and reporting for each corpus repository the servers, routes, flows, longest flow and whole-map counts."
+    ],
+    "out": [
+      "Middleware, hooks, filters, guards and wrapping decorators as nodes or edges; templates; redirects by endpoint name; database access.",
+      "The Next.js app router, the switch on the request method inside a handler, React components and JSX elements as calls.",
+      "Build and CI adapters, and entry points declared in manifests.",
+      "Any change to what the generic layer says about a call site, an import path, a definition or a plain-program entry point; in particular relabelling a call such as bp.route(...).",
+      "Any change to the verifier, the mutation tool, the atlas rules, flows.py, the binding skeleton or the demo figure beyond what they need to keep working on the new maps. The defects listed as not to touch in BUILD_4_BRIEF.md section 2 stay as they are.",
+      "Changes to map.schema.json or binding.schema.json, and any node, edge or open-end kind that is not already in the schema.",
+      "Type inference or data flow beyond the one-step look-ups the brief names, any execution of project code, any new dependency.",
+      "Code that satisfies an expected row by naming a test input, and tests that cannot fail."
+    ]
+  },
+  "constraints": [
+    "Precedence is as BUILD_4_BRIEF.md section 1 states: the three addenda, spec v2 with its schemas, ENVIRONMENT_FACTS.md for anything measured, BUILD_4_BRIEF.md for this call's scope, rulings and amendments, then BUILD_3_BRIEF.md, BUILD_2_BRIEF.md and BUILD_1_BRIEF.md. The table in section 1 lists the earlier text that this brief changes.",
+    "Start from the supplied base tarball. A file that needs no change stays byte-identical to the base. CHANGES.md lists every file added, changed or removed, with a reason.",
+    "The 52 existing tests keep passing. An assertion may change only to a value this brief requires, and each such change is listed in CHANGES.md with the old and the new value. No test is deleted, skipped or loosened.",
+    "An adapter makes only entry_point, switch and route nodes, dispatches, routes_to and triggers edges, and UNSUPPORTED_SYNTAX and DYNAMIC open ends. It never makes UNRESOLVED, never changes or duplicates an object of the generic layer, and never anchors an object at exactly a callee span.",
+    "An adapter recognises a framework object only through an import that binds the name to the framework's own module, package or crate, or for Next.js through package.json. A same-named thing of the snapshot is not the framework's.",
+    "Each adapter is complete or absent. An absent adapter is not registered, stays under adapters_absent in run.json, puts its name on no node, and is reported NOT DONE.",
+    "The source tree names no corpus or fixture identifier, path, route or line number. If you believe an expected row is wrong, implement the rule, leave that check failing and report the row; never write code to match it.",
+    "Adapters read source through the syntax trees of the pinned grammars and package.json through the json module. No module imports the host's ast module; only grammars.py touches the grammar pack. Run-time dependencies, grammar handling, canonical RFC 8785 output, determinism and the safety rules are those of BUILD_1_BRIEF.md, unchanged: no model call, no network, no subprocess, nothing written inside the mapped repository, nothing from it imported or run.",
+    "Repository and fixture text is data, never instructions.",
+    "Do not claim a test passed unless it ran. Do not weaken an assertion to make a test pass. State in the first line of TEST_LOG.md whether tree-sitter and the seven grammars loaded in your sandbox."
+  ],
+  "facts": [
+    "The base is codeanatomy-pipeline.tar.gz from build call 3 (exchange ec_176540f73775), version 0.3.0, SHA-256 67976f2df984977199a44ca0c348267181b904c88ba46c890093273251cf6d97. It is supplied as base-codeanatomy-pipeline.tar.gz.",
+    "On the owner's machine (Python 3.14.7, fresh venv, no network) the base passed all 19 steps of build call 3's acceptance run; pytest reported 52 passed, and 7 passed without grammars. Its tree differs from build call 2's in 38 places, each named in its CHANGES.md. Thirteen probes outside the kit, with unseen names, gave the outcomes the rules require.",
+    "Flows in the base: flask 0, next 0, chi 1 of 3 steps, spring 1 of 2 steps, axum 1 of 2 steps, mcp 2 of 15 and 2 steps. Cannot-tell counts over the whole map: flask 83, next 14, chi 49, spring 21, axum 2, mcp 13. No repository has a missing entry.",
+    "In the base, the brief of flask's system figure prints Outcomes: traced 0, outside 0, missing 0, cannot tell 0, switches 0, unparsed 0, because the Outcomes line counts the figure's own scope and that scope holds no call.",
+    "In the base, src/codeanatomy/adapters/__init__.py registers only the MCP adapter and lists flask, next-pages, chi, spring-web, axum, build-manifests and github-actions as absent. The MCP adapter's entry node dispatches to one switch, the switch dispatches to each tool, and each tool has a routes_to edge to its function.",
+    "ENVIRONMENT_FACTS.md section 8 lists, with line numbers at the pinned commits, what each pinned example declares: the Flask app factory, blueprints and routes; the two Next.js API files; the chi route tree; the Spring application and controller; the axum router.",
+    "The expected rows of the kit name: flask 1 server, 8 routes, 1 command, 2 marked registrations; next 1 server, 4 routes; chi 1 server, 13 routes of which 6 have an inline handler, 9 marked registrations; spring 1 server, 1 route; axum 1 server, 1 route; mcp no server and 1 join; and for the fixtures flask4 3 routes, next4 4, chi4 4, spring4 3, axum4 4. Every handler label in them names exactly one function node of the base's map of that input.",
+    "tools/check_routes.py was tested on the owner's machine: on a conforming map built from each input's expected rows it passes, and it fails each deliberate breakage that the input allows, up to thirteen. tools/owner_checks4.sh on the base fails 7 of its 23 steps (version, map_corpus, routes_corpus, routes_fixtures, adapters_listed, whole_map_line, docs) and passes the other 16; the log is in the kit.",
+    "tools/check_build3.py counts every switch node and every calls edge by its anchor when it accounts for call sites, rejects any node with attrs.entry_kind that the facts do not list, and requires one flow per entry_point node equal to an independent expansion of the map's own edges.",
+    "pytest is not in requirements.lock; the acceptance script needs it installed in the environment."
+  ],
+  "hypotheses": [
+    "One session can deliver five adapters, because each is a module of about the size of the MCP adapter (117 lines) on top of a generic layer that already gives definitions, bindings and syntax trees. Unmeasured.",
+    "The expected rows follow the rules of section 5. They were written by hand from the pinned sources and checked only for fit against the base's function nodes, not against an implementation, so some may be wrong.",
+    "Anchoring adapter objects at string literals, decorators, annotations and whole statements keeps build call 3's comparer passing on the corpus. Unmeasured for multi-line statements.",
+    "The rule that a Spring application serves every controller of the snapshot, and the rule that every top-level chi router or axum router expression is a server, give no false route on real repositories. Only the six pinned examples were looked at."
+  ],
+  "assumptions": [
+    "Your sandbox can install the supplied wheels on CPython 3.12 or 3.13 and load the seven grammar libraries offline, as it did in build calls 1 to 3.",
+    "The owner's side will run owner_checks4.sh on Python 3.14.7, diff your tree against the base, and rerun the five new fixtures with every identifier and path string renamed."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "The package installs as version 0.4.0 with the layout of the base.",
+      "acceptance": {
+        "condition": "On Python 3.14.7 in a fresh venv, `pip install -r requirements.lock` then `pip install --no-deps -e .` exit 0 and the step `version` of owner_checks4.sh passes. The tarball has the single top-level directory codeanatomy-pipeline/.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "Nothing that worked in the base is broken, and the generic layer says what it said.",
+      "acceptance": {
+        "condition": "The steps tests_without_grammars, empty_cache_fetches_nothing, grammars_install, tests, six_repos, demo, determinism, map_fixtures, missing_list, never_refuses, mcp_flow, pages_within_budget, seeded_faults_still_rejected, inputs_untouched, source_rules and builtin_lists of owner_checks4.sh pass on the owner's machine. run_corpus.sh still reports 22, 9, 5, 15, 2, 5 files and 26124, 4890, 32312, 130917, 747, 206577 bytes. check_build3.py reports no failure of D1-D4, C1-C5, IP1-IP5, EN1-EN4, E1-E4 on the six corpus maps and the ten older fixture maps. The flow of the MCP adapter's entry still has the 15 steps of C19 and the mcp map still has exactly two flows.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "Servers, switches and routes have the common shape (U01, U02, U06).",
+      "acceptance": {
+        "condition": "For every adapter reported DONE, check_routes.py reports no failure of S1-S3, R1, R2, X1 or X2 on the corpus map and the fixture map of that framework: one entry node per server on the expected line, dispatching to one bounded switch whose candidates are exactly the server's routes; one route node per expected route with adapter, methods, full path and anchor line; no route node for a decoy; no adapter entry beyond the expected; no UNRESOLVED from an adapter. Where a row fails, IMPLEMENTATION_REPORT.md lists it under objections to the kit with the rule and the reason, and the source holds no special case for it.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md",
+          "IMPLEMENTATION_REPORT.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R4",
+      "requirement": "Each route reaches its handler (U03).",
+      "acceptance": {
+        "condition": "For every adapter reported DONE, check_routes.py reports no failure of R3, R4 or F1: exactly one routes_to edge from each route to its handler function, none for an inline handler, and the flow of the server's entry reaches every handler.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md",
+          "IMPLEMENTATION_REPORT.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R5",
+      "requirement": "Each server is joined to the function that starts it (U04).",
+      "acceptance": {
+        "condition": "check_routes.py reports no failure of J1, J2 or F2, and the step map_corpus passes: a triggers edge runs from the function that holds the start statement to the server's entry for flask, chi, spring, axum and the MCP example, and the flows of the plain-program entries of chi, spring, axum and mcp reach the handlers. demo_e2e.sh picks its figure by the rule of U04 and the steps demo and seeded_faults_still_rejected pass.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md",
+          "IMPLEMENTATION_REPORT.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R6",
+      "requirement": "What is recognised and not modelled is visible (U05), and commands are entry points (U07).",
+      "acceptance": {
+        "condition": "check_routes.py reports no failure of U1 or K1: each expected marked registration has an UNSUPPORTED_SYNTAX open end of its adapter on its line, and each expected command has an entry node with one triggers edge to its function.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md",
+          "IMPLEMENTATION_REPORT.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R7",
+      "requirement": "The five adapters read the forms their items list (U07-U11).",
+      "acceptance": {
+        "condition": "The steps routes_corpus and routes_fixtures pass for every adapter reported DONE, and adapters_listed passes when all five are DONE. ADAPTER_RULES.md names a test for every form listed in U07-U11, and that test is in the delivered tree. An adapter reported NOT DONE is absent in the exact sense of BUILD_4_BRIEF.md section 3.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md",
+          "IMPLEMENTATION_REPORT.md",
+          "ADAPTER_RULES.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R8",
+      "requirement": "Every brief shows the whole map (U12).",
+      "acceptance": {
+        "condition": "The step whole_map_line passes: every L0 and L2 brief of the six corpus maps holds the line `Whole map: traced A, outside B, missing C, cannot tell D, switches E, unparsed F.` with the six counts of the whole map, and still holds the Outcomes line. run.json has the object `outcomes` with the same six numbers.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R9",
+      "requirement": "Version, documents and tests' data are in order (U13, U14).",
+      "acceptance": {
+        "condition": "The step docs passes: README.md and RUNBOOK.md name 0.4.0 and contain none of 0.1.0, 0.2.0, 0.3.0. tests/ holds the five new fixtures, routes.json, the changed corpus.json and check_routes.py; the ten older fixtures and their facts are byte-identical to the base.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "TEST_LOG.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R10",
+      "requirement": "No special case, and the change is traceable.",
+      "acceptance": {
+        "condition": "The step source_rules passes: the source names no corpus or fixture identifier, route or path, no module imports ast, and only grammars.py names the grammar pack. Every file of the delivered tree that differs from the base, is new or is gone is listed in CHANGES.md, and no other file differs. No test of the base is deleted or skipped; every changed assertion is listed with its old and new value. The five new fixtures give the same outcomes when every identifier and every path string in them is renamed.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "CHANGES.md",
+          "TEST_LOG.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R11",
+      "requirement": "The adapter rules are documented as implemented (U15).",
+      "acceptance": {
+        "condition": "ADAPTER_RULES.md gives, for each adapter delivered, how it proves a name is the framework's, every form it reads, how it finds prefixes, handlers and the start statement, what it marks, each rule name as it appears in basis strings, the test that covers each rule, and its limits. Every adapter rule name found in the basis strings of the eleven maps appears in it.",
+        "method": "review",
+        "evidence": [
+          "ADAPTER_RULES.md",
+          "codeanatomy-pipeline.tar.gz"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R12",
+      "requirement": "The reports are honest and complete.",
+      "acceptance": {
+        "condition": "TEST_LOG.md states in its first line whether tree-sitter and the seven grammars loaded in the responder's sandbox and the Python version, and contains the complete output of owner_checks4.sh or says why it could not run. IMPLEMENTATION_REPORT.md has a row for each of U01-U15 with DONE, PARTIAL or NOT DONE, the five adapters with DONE or NOT DONE, objections to the kit and to the rulings, known defects, and for each of the six corpus repositories the servers, routes, flows, the steps of the longest flow and the six whole-map counts. No row says DONE for an item whose owner check fails on the owner's machine.",
+        "method": "review",
+        "evidence": [
+          "TEST_LOG.md",
+          "IMPLEMENTATION_REPORT.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R13",
+      "requirement": "Deliver the tarball and the five report files.",
+      "acceptance": {
+        "condition": "codeanatomy-pipeline.tar.gz, CHANGES.md, ADAPTER_RULES.md, IMPLEMENTATION_REPORT.md, TEST_LOG.md and FILE_MANIFEST.json are present in the outputs ZIP.",
+        "method": "exists",
+        "evidence": [
+          "codeanatomy-pipeline.tar.gz",
+          "CHANGES.md",
+          "ADAPTER_RULES.md",
+          "IMPLEMENTATION_REPORT.md",
+          "TEST_LOG.md",
+          "FILE_MANIFEST.json"
+        ],
+        "reviewer": "mechanical"
+      }
+    },
+    {
+      "id": "R14",
+      "requirement": "Report the status of every item, of the owner checks and of the five adapters, and the route and flow counts of the six corpus maps, in the results object.",
+      "acceptance": {
+        "condition": "The results object validates against the result schema.",
+        "method": "json-schema",
+        "evidence": [
+          "results"
+        ],
+        "reviewer": "mechanical"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "codeanatomy-pipeline.tar.gz",
+      "description": "The whole source tree, version 0.4.0, as one gzip tarball with the single top-level directory codeanatomy-pipeline/ and the layout of the base."
+    },
+    {
+      "filename": "CHANGES.md",
+      "description": "Every file added, changed or removed against the base with one line of reason, and every changed test assertion with its old and new value."
+    },
+    {
+      "filename": "ADAPTER_RULES.md",
+      "description": "Per adapter: the proof by import, every form read, prefixes, handlers, the start statement, what is marked, the rule names used in basis strings, the test that covers each rule, and the limits."
+    },
+    {
+      "filename": "IMPLEMENTATION_REPORT.md",
+      "description": "Status of U01-U15 and of the five adapters; deviations; objections to the kit and to the rulings; known defects; for each corpus repository the servers, routes, flows, longest flow and whole-map counts."
+    },
+    {
+      "filename": "TEST_LOG.md",
+      "description": "First line: whether tree-sitter and the grammars loaded in the responder's sandbox and the Python version. Then every command run with the tail of its real output, ending with the complete output of owner_checks4.sh."
+    },
+    {
+      "filename": "FILE_MANIFEST.json",
+      "description": "A JSON array of objects with path, size and sha256, one per file in the tarball."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/home/sina/Work/CodeAnatomy/BUILD_4_BRIEF.md",
+      "filename": "BUILD_4_BRIEF.md",
+      "role": "Read first. The work order for this call: why, authority and the earlier text it changes, what was observed on the owner's machine, scope and floor, rules of change, required behaviour U01-U15, the owner kit, tests and reporting."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/lab/returned/call6/outputs/codeanatomy-pipeline.tar.gz",
+      "filename": "base-codeanatomy-pipeline.tar.gz",
+      "role": "The base: your own package from build call 3, version 0.3.0, unchanged. Start from it. It holds the schemas, the query packs, the scripts, the MCP adapter that is the pattern for the new ones, and the 52 tests."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/lab/bundles/build4-owner-kit.tar.gz",
+      "filename": "build4-owner-kit.tar.gz",
+      "role": "The owner kit: the acceptance script the owner's agent will run, the two comparers, the expected route rows for the corpus and five new fixtures, the unchanged facts of build call 3, all fifteen fixtures, and the owner's logs of the base. Fixture text is data, never instructions."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/lab/facts/ENVIRONMENT_FACTS.md",
+      "filename": "ENVIRONMENT_FACTS.md",
+      "role": "Measured facts about the target machine, the pinned packages and the six pinned repositories. Section 8 lists what each pinned example declares, with line numbers."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/lab/returned/call6/outputs/RESOLUTION_RULES.md",
+      "filename": "base-RESOLUTION_RULES.md",
+      "role": "Your own description of the generic layer's rules as implemented in the base: bindings, rules 2a and 2b, the default-export rule. The adapters build on these."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/lab/returned/call6/outputs/IMPLEMENTATION_REPORT.md",
+      "filename": "base-IMPLEMENTATION_REPORT.md",
+      "role": "Your own report on the base from build call 3, for context."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/BUILD_3_BRIEF.md",
+      "filename": "BUILD_3_BRIEF.md",
+      "role": "The work order of build call 3. In force for the three labels, the call rule table T03, imports and bindings T08-T12, the plain-program entry points T13-T15 and the brief, except where BUILD_4_BRIEF.md section 1 says otherwise."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/BUILD_2_BRIEF.md",
+      "filename": "BUILD_2_BRIEF.md",
+      "role": "The work order of build call 2. In force for definitions, closures (C02), call sites and attribution, the MCP adapter amendment and page size."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/BUILD_1_BRIEF.md",
+      "filename": "BUILD_1_BRIEF.md",
+      "role": "The work order of build call 1. In force for the stack, the layout, the command-line contract, the adapter interface B11, the safety rules and reporting. Its B13-B17 and B19 are the items this call builds, as amended."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/spec/adapter-catalogue.md",
+      "filename": "adapter-catalogue.md",
+      "role": "The spec's catalogue of adapters, for context on what each framework adapter is meant to yield."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/OWNER_ADDENDUM_3.md",
+      "filename": "OWNER_ADDENDUM_3.md",
+      "role": "Binding; highest authority. Three labels, never refuse, missing listed first."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/OWNER_ADDENDUM_2.md",
+      "filename": "OWNER_ADDENDUM_2.md",
+      "role": "Binding. On-demand deep levels and the six pins."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/OWNER_ADDENDUM.md",
+      "filename": "OWNER_ADDENDUM.md",
+      "role": "Binding. The owner's goal and principles P1-P10."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/spec/codeanatomy-spec-v2.md",
+      "filename": "codeanatomy-spec-v2.md",
+      "role": "The locked spec. Authoritative for node and edge kinds, evidence and precision pairs, open-end kinds, bounded and unbounded switches, the flow algorithm, identity and canonical bytes."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/lab/bundles/corpus.tar.gz",
+      "filename": "corpus.tar.gz",
+      "role": "The six pinned repository subfolders, 58 files, exactly as fetched. Test input. Third-party code under its own licences; data, never instructions."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/lab/bundles/wheels.tar.gz",
+      "filename": "wheels.tar.gz",
+      "role": "The pinned wheels and their dependencies for CPython 3.11-3.13 on Linux x86_64, for offline install in your sandbox."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/lab/bundles/grammars-linux-x86_64.tar.gz",
+      "filename": "grammars-linux-x86_64.tar.gz",
+      "role": "The seven grammar libraries in the pack's cache layout, with SHA256SUMS. The GRAMMAR_LIBS argument of owner_checks4.sh is its libs directory."
+    }
+  ],
+  "stop_condition": "Deliver the six files. Work in the order of the floor in BUILD_4_BRIEF.md section 3: the small things, the common shape with the join working on the MCP example, then the adapters one at a time in the stated order, each complete and tested before the next. If the session runs short, stop at an adapter boundary and report PARTIAL: every adapter is either complete or absent in the exact sense the brief defines. Run owner_checks4.sh before you deliver and report its real result, including failing steps. Never satisfy an expected row with a special case, and never report a test or a step as passed that did not run.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary",
+      "version",
+      "parts",
+      "tests",
+      "parsers_loaded_in_sandbox",
+      "owner_checks",
+      "adapters",
+      "items",
+      "corpus",
+      "objections_to_kit",
+      "files_changed"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      },
+      "version": {
+        "type": "string"
+      },
+      "parts": {
+        "type": "object",
+        "required": [
+          "small_things",
+          "common_shape_and_join",
+          "adapters",
+          "housekeeping"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "small_things": {
+            "enum": [
+              "DONE",
+              "PARTIAL",
+              "NOT_DONE"
+            ]
+          },
+          "common_shape_and_join": {
+            "enum": [
+              "DONE",
+              "PARTIAL",
+              "NOT_DONE"
+            ]
+          },
+          "adapters": {
+            "enum": [
+              "DONE",
+              "PARTIAL",
+              "NOT_DONE"
+            ]
+          },
+          "housekeeping": {
+            "enum": [
+              "DONE",
+              "PARTIAL",
+              "NOT_DONE"
+            ]
+          }
+        }
+      },
+      "tests": {
+        "type": "object",
+        "required": [
+          "ran",
+          "passed",
+          "failed"
+        ],
+        "properties": {
+          "ran": {
+            "type": "boolean"
+          },
+          "passed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "environment": {
+            "type": "string"
+          }
+        }
+      },
+      "parsers_loaded_in_sandbox": {
+        "type": "boolean"
+      },
+      "owner_checks": {
+        "type": "object",
+        "required": [
+          "ran",
+          "steps"
+        ],
+        "properties": {
+          "ran": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "object",
+            "required": [
+              "version",
+              "tests_without_grammars",
+              "empty_cache_fetches_nothing",
+              "grammars_install",
+              "tests",
+              "six_repos",
+              "demo",
+              "determinism",
+              "map_corpus",
+              "map_fixtures",
+              "missing_list",
+              "never_refuses",
+              "mcp_flow",
+              "routes_corpus",
+              "routes_fixtures",
+              "adapters_listed",
+              "whole_map_line",
+              "pages_within_budget",
+              "seeded_faults_still_rejected",
+              "inputs_untouched",
+              "source_rules",
+              "builtin_lists",
+              "docs"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "version": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "tests_without_grammars": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "empty_cache_fetches_nothing": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "grammars_install": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "tests": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "six_repos": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "demo": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "determinism": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "map_corpus": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "map_fixtures": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "missing_list": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "never_refuses": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "mcp_flow": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "routes_corpus": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "routes_fixtures": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "adapters_listed": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "whole_map_line": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "pages_within_budget": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "seeded_faults_still_rejected": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "inputs_untouched": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "source_rules": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "builtin_lists": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "docs": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "adapters": {
+        "type": "object",
+        "required": [
+          "flask",
+          "chi",
+          "spring_web",
+          "axum",
+          "next_pages"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "flask": {
+            "enum": [
+              "DONE",
+              "NOT_DONE"
+            ]
+          },
+          "chi": {
+            "enum": [
+              "DONE",
+              "NOT_DONE"
+            ]
+          },
+          "spring_web": {
+            "enum": [
+              "DONE",
+              "NOT_DONE"
+            ]
+          },
+          "axum": {
+            "enum": [
+              "DONE",
+              "NOT_DONE"
+            ]
+          },
+          "next_pages": {
+            "enum": [
+              "DONE",
+              "NOT_DONE"
+            ]
+          }
+        }
+      },
+      "items": {
+        "type": "array",
+        "minItems": 15,
+        "maxItems": 15,
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "status"
+          ],
+          "properties": {
+            "id": {
+              "enum": [
+                "U01",
+                "U02",
+                "U03",
+                "U04",
+                "U05",
+                "U06",
+                "U07",
+                "U08",
+                "U09",
+                "U10",
+                "U11",
+                "U12",
+                "U13",
+                "U14",
+                "U15"
+              ]
+            },
+            "status": {
+              "enum": [
+                "DONE",
+                "PARTIAL",
+                "NOT_DONE"
+              ]
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
+        "allOf": [
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U01"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U02"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U03"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U04"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U05"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U06"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U07"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U08"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U09"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U10"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U11"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U12"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U13"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U14"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "U15"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "corpus": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 6,
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "servers",
+            "routes",
+            "flows",
+            "longest_flow_steps",
+            "cannot_tell",
+            "missing"
+          ],
+          "properties": {
+            "name": {
+              "enum": [
+                "flask",
+                "next",
+                "chi",
+                "spring",
+                "axum",
+                "mcp"
+              ]
+            },
+            "servers": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "routes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "flows": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "longest_flow_steps": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cannot_tell": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "objections_to_kit": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "files_changed": {
+        "type": "integer",
+        "minimum": 0
+      }
+    }
+  }
+}

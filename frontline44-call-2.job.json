@@ -1,0 +1,154 @@
+{
+  "project": "frontline44",
+  "title": "M8a progression and skill class core - isolated packet",
+  "purpose": "Implement the unique XP, skill and class business logic consumed by later camp menus, without owning their UI.",
+  "task": "Implement \u00a78.9 XP kill attribution and level rollover, all skill-buy/class-select transactions, class kit-on-deploy and explicit named method hooks; preserve pre-existing point/HQ/win XP credits.",
+  "scope": {
+    "in": [
+      "Determine XP on hostile SM_Marine death by tier, unknown hostile marine=Regular; full player kills and half FL_SoldierUS kills; resolve killer via e.Inflictor, if projectile then its target, per spec; reward MVP_ArmyTruck=60, MVP_APC=120, MVP_MBT=250 without duplicates.",
+      "Use existing GiveXP for capture +50, German target +150, win +500 already in Handler.zs; extend/refactor only as needed for complete while rollover of FL_XP across 300*currentLevel, one skill point per level, and battleXP accounting. Preserve loss/down semantics, max level 99.",
+      "Implement M8A_BuySkill(skillIndex) for the exact 10 skill item classes in existing Items.zs order; transaction costs exactly 1 point/rank and rejects missing points/max rank 3; existing FL_Stats computes skill effects and must not be rewritten.",
+      "Implement M8A_SelectClass(classId) for Rifleman=1, Assault=2, Engineer=3, Officer=4 and free selection. Check/refine existing GiveKit/DeployToBattle transaction only if necessary: no long gun -> Garand/Thompson as specified, +64 Clip; Engineer +2 satchels.",
+      "Provide XP/skills/class executable acceptance scenarios to be integrated by operator and Call 4 T13b owner; log and stop on uncertain ZScript WorldEvent/e.Inflictor/damage attribution semantics rather than inventing successful tests."
+    ],
+    "out": [
+      "Roster UI, station menu text/dispatch, T13b ownership, loot chance/drops, building, shipping and any donor/director retuning."
+    ]
+  },
+  "constraints": [
+    "Use only the specifically supplied source files. source_001_FRONTLINE44_SPEC.md controls, including the approved \u00a78.6 debut reservation. Distinguish verified source facts from untested engine hypotheses.",
+    "Parallel source authoring only; the operator alone integrates in M7\u2192M8\u2192M9\u2192M10 order, repairs compiler/API faults, runs the engine, accepts milestones and ships. No engine is assumed available to this call; never claim that load or any test PASS was executed.",
+    "ZScript only for gameplay; all custom files under frontline/; no donor code modifications; FL_ custom class prefix and fl_ CVar prefix; every newly introduced production number other than 0/1 must be declared in FL_T. Do not weaken tests or change existing PASS semantics.",
+    "Preserve M0\u2013M6 baselines and T1\u2013T11/T13 arg0/T16; no whole-file Handler.zs, Tests.zs, Tuning.zs, zscript.zs, mapinfo.txt or keyconf.txt rewrites. A parallel implementation must provide method-only fragments and a machine-readable hooks.json for operator application.",
+    "Frozen-source status conflict: source_002 claims M6/T10 PASS while source_012 records T10 FAIL and source_016 was an unrun proposal. Treat current M6 verification as an operator preflight gate, not a proved PASS; never change director economics within this job.",
+    "Result is inert code; report unverified ZScript signature assumptions as PARTIAL/BLOCKED and provide diagnostics. Do not silently add game features, implement test-only cheats, relax thresholds or edit donor code.",
+    "Do not modify World.zs (Call 1), Items.zs (Call 3), or any baseline gameplay file directly; include M8A_ Handler methods and tightly scoped proposed GiveXP/GiveKit body replacement in fragments with exact match anchors.",
+    "Operator owns the single Handler.WorldThingDied override; M8A_OnDeath(WorldEvent e) is dispatched first, M8L_OnDeath(e) second. Do not create competing death overrides.",
+    "Caller integration contract: bool M8A_BuySkill(int skillIndex) using indices 0..9 in spec list order; bool M8A_SelectClass(int classId) 1..4. Call 4 presents those choices but calls these exact routines and does not recreate purchase mechanics. Any API deviation must be explicit BLOCKED.",
+    "Do not credit XP for existing point, HQ or win events a second time; no XP for friendly deaths, null killer, non-awarded entities, repeat callbacks, or test-spawn setup alone.",
+    "Production logic changes must pass original T7/T13 arg0/T16; joint T13 arg1 test belongs to Call 4 and remains unexecuted here."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Implement exact progression rewards and rollover",
+      "acceptance": {
+        "condition": "All specified player/squad/tier/vehicle source combinations and level threshold/rank caps are handled via production death event; point/HQ/win rewards not double counted.",
+        "method": "review",
+        "evidence": [
+          "call-2-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "Export single-owner transactions for skills and classes",
+      "acceptance": {
+        "condition": "M8A_BuySkill / M8A_SelectClass contracts, exact 10 ranks and 4 class kits, affordability/rejections, and reference to existing Stats/Items; Call 4 can invoke without rewriting.",
+        "method": "review",
+        "evidence": [
+          "call-2-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "Return merge-safe code with honest verification",
+      "acceptance": {
+        "condition": "Only named handler fragments/tuning and anchors; operator checklist covers load exit57, T7/T13a/T16 + T13b in merged M8 and full prior regressions; no invented tests PASS.",
+        "method": "review",
+        "evidence": [
+          "call-2-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "call-2-packet.zip",
+      "description": "ZIP containing README-integration.md (exact hooks/assumptions), owned/ (only exclusively owned complete files), fragments/ (Handler method definitions, Tuning FL_T member declarations, TestHandler methods as relevant), hooks.json (ordered records with id/file/unique anchor/operation/payload/before_or_after/depends_on/expected_match_count=1), verification.md (unexecuted compilation and exact-test checklist), limitations.md. Include diffs against each owned baseline. No entire shared-file replacement or unapproved changes."
+    },
+    {
+      "filename": "call-2-api-contract.md",
+      "description": "Exact M8A_OnDeath/M8A_BuySkill/M8A_SelectClass behavior, inputs/outputs, XP source/dedupe table, tests needing Call 4."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/home/sina/Downloads/FRONTLINE44_SPEC.md",
+      "role": "Authoritative game/spec \u00a70, \u00a75, \u00a78.7, \u00a711 T12, \u00a713 and \u00a712."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/SPLIT_DESIGN_BRIEF.md",
+      "role": "Five-call model, done milestones and integration assumptions."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Handler.zs",
+      "role": "Read-only shared handler baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tests.zs",
+      "role": "Read-only shared harness baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tuning.zs",
+      "role": "Read-only FL_T baseline; publish constants fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Weapons.zs",
+      "role": "Weapon/drop/projectile implementations and gun index contracts."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Player.zs",
+      "role": "Player/camp/class and damage hooks; do not rewrite."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Items.zs",
+      "role": "Current inventories, parts pickup and upgrade/roster records; exclusive Call 3 edit path."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Stats.zs",
+      "role": "Existing FL_Stats formulas; do not change PASS T13a."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Soldiers.zs",
+      "role": "Tier/rank, squad flags and hostile types."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/BUILD_LOG.md",
+      "role": "Historical outcomes; T10 baseline conflict must be acknowledged."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/DECISIONS.md",
+      "role": "Binding previous integration decisions/limitations."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/TEST_SPEED_EVIDENCE.md",
+      "role": "Actual test/run constraints, solo engine and kill-on-verdict."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/docs-excall/t10-resolution.md",
+      "role": "Previous proposal; authoritative \u00a78.6 is now amended; prior document untested."
+    },
+    {
+      "path": "/home/sina/Work/ExternalCall/examples/repository_audit.job.json",
+      "role": "Template defining job JSON style and required keys."
+    }
+  ],
+  "stop_condition": "Deliver call-2-packet.zip and cross-call API contract; mark event signatures/compile status unknown rather than declaring done.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      }
+    }
+  }
+}

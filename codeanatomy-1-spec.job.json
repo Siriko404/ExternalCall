@@ -1,0 +1,764 @@
+{
+  "project": "codeanatomy",
+  "title": "Code Anatomy call 1 of 2: brainstorm and lock the exact spec",
+  "purpose": "Lock the Code Anatomy idea as an exact specification, so that the next call (stack research) and the implementation calls after it can proceed without any design question left open. The owner reads the result to decide whether the project goes ahead as specified.",
+  "task": "Read BRIEF.md first. Stress-test the idea against the supplied Code Factory v2.2 spec and the supplied Anatomy skill files, close every open question Q1-Q16, give a verdict on every proposal H1-H7, and deliver a locked spec in the form of the Code Factory v2.2 spec, with two JSON Schemas, a hand-derived worked example, a decision log and a separate objections file.",
+  "scope": {
+    "in": [
+      "Brainstorm and stress-test: argue the strongest case against the idea, and for each tension T1-T10 in BRIEF.md state how the spec resolves it or why it cannot be resolved.",
+      "Close every open question Q1-Q16 in BRIEF.md with one decision each.",
+      "Give each proposal H1-H7 in BRIEF.md a verdict: ADOPTED, MODIFIED or REJECTED.",
+      "Write the locked spec, the map schema, the binding schema, the worked example with its two JSON instances, the decision log and the objections file.",
+      "Browse the live web for feasibility evidence and prior art where a decision depends on it."
+    ],
+    "out": [
+      "Choosing or locking a specific tool, library, indexer, parser, storage engine or implementation language. That is the next call.",
+      "Writing implementation code or building any figure.",
+      "Changing owner decisions D1-D7.",
+      "Redesigning Anatomy's drawing craft, its kit or its own checks.",
+      "Extending or re-deriving Code Factory's Python analysis rules."
+    ]
+  },
+  "constraints": [
+    "BRIEF.md section 3 (D1-D7) is binding. The spec obeys it. Disagreement with it goes only in objections.md.",
+    "BRIEF.md section 4 (H1-H7) is not binding. These are the preparing agent's proposals. Challenge them on their merits.",
+    "D2 means the mapper's output must not depend on any model call.",
+    "Decide; do not ask. The owner cannot answer questions during this call. Where a choice truly belongs to the owner, apply a recommended default in the spec and list it as an owner decision. At most 5 such items.",
+    "Lock no specific tool. A tool may be named only as evidence that a requirement is feasible, with its URL.",
+    "Every 'must' placed on the mapper or the verifier either cites evidence that it is feasible (an existing tool or a published technique, with URL) or is written as a gate with a numeric target, a measurement method and a pre-decided fallback.",
+    "Label each factual claim about external software or literature VERIFIED (you opened the source during this call; give URL and access date) or RECALLED (from memory, not checked).",
+    "Do not state a guarantee you cannot define and test. Say plainly what is not promised.",
+    "When quoting a supplied file, quote exactly and cite the file and section.",
+    "Write in plain, short sentences. Use tables for rules. Follow the form of the Code Factory v2.2 spec: plain summary first, hard rules, numbered sections, schemas, gates with fallbacks, acceptance tests, known limits.",
+    "No implementation code. The JSON Schema files and example JSON instances are required and do not count as implementation code."
+  ],
+  "facts": [
+    "The owner's goal, verbatim, is in BRIEF.md section 1.",
+    "Anatomy is public at https://github.com/wheresryan22/anatomy . The supplied files were copied from commit 689dcf966e63d92be10a5d593c6e19e10acd4422. Its LICENSE file is MIT.",
+    "Anatomy checks the drawing (geometry audit, line-end check, headless-Chrome captures). It has no check that a figure is true to source code.",
+    "Code Factory blueprint spec v2.2 is supplied. It is Python only and uses no LLM anywhere. No code for it was found in its project folder.",
+    "The owner calls Code Factory expired and gave no reason."
+  ],
+  "hypotheses": [
+    "H1-H7 in BRIEF.md section 4 are proposals by the preparing agent, not owner decisions.",
+    "T1-T10 in BRIEF.md section 5 are tensions the preparing agent believes are real. Some may be wrong; say so with evidence if so."
+  ],
+  "assumptions": [
+    "The responder can browse the public web and GitHub.",
+    "Anatomy files not supplied here (README.md, references/craft.md, kit.md, motion.md, react.md, webgl.md, 3d.md, the kit and the examples) can be read at the public repository at the commit above."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Decide everything and record every decision. decision-log.md holds one entry for each of Q1-Q16 and each of H1-H7, plus any further decision the spec needed.",
+      "acceptance": {
+        "condition": "decision-log.md has an entry for every Q1-Q16 and H1-H7. Each entry gives the options considered, the choice, the reason, the evidence with its VERIFIED or RECALLED label, and the measurement that would overturn it. The spec contains no 'TBD', no 'to be decided' and no either/or left open.",
+        "method": "review",
+        "evidence": [
+          "decision-log.md",
+          "codeanatomy-spec-v1.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "Open the spec with a plain summary of at most one page and a list titled 'Not promised'. Define the product (Q1, Q2): what a user asks for, what comes back, the closed list of codebase figure kinds with the map slice each takes and its Anatomy size, and the cases where no figure is drawn and what is returned instead.",
+      "acceptance": {
+        "condition": "The spec starts with a plain summary and a 'Not promised' list. It has a closed table of figure kinds, each with its map slice, its Anatomy size (Figure, Hero or Epic) and one example. It has a table of refusal cases, each with a testable trigger and the returned output.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "Define the closed map vocabulary (Q3): node kinds, edge kinds and open-end kinds, language-neutral. State totality: every file gets exactly one class, and every reference either resolves to a target set or is a counted, anchored open end. State which cross-stack things (build targets, services, routes, database schemas, queues, infrastructure, CI) are in version 1 and which are not.",
+      "acceptance": {
+        "condition": "The spec lists every node kind, edge kind and open-end kind with a one-line definition and an example from at least two different languages or stacks. There is no 'other' or 'misc' kind. Totality is stated as a rule that a test can check, and that test is named in the acceptance tests.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md",
+          "map.schema.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R4",
+      "requirement": "Define exactly what 'every stack' and 'accurately' mean (Q4). Define the tiers of depth. For each kind of fact, state the guarantee: whether it may over-claim, whether it may under-claim, and the test that checks it. State what the universal tier guarantees for a language the tool has never seen. State which Code Factory v2.2 sections survive as a Python deep tier.",
+      "acceptance": {
+        "condition": "The spec has a table with one row per fact kind and per tier giving the guarantee and the named test. It states the outcome for an unknown language and for a file that cannot be parsed. It states in one place what is not promised at each tier.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R5",
+      "requirement": "Define identity, anchors and the determinism contract (Q5, Q6, Q7): symbol and occurrence identity across languages, the anchor format, the input manifest, canonical serialization, the snapshot ID, exactly what may differ between two runs and between two machines, and the closed-world boundary for dependencies, vendored code, generated code, submodules and monorepos. Say where Code Factory v2.2 sections 18-19 are reused and where they change.",
+      "acceptance": {
+        "condition": "The spec lists every input that is hashed into the snapshot ID, gives the canonical ordering and encoding rules, and has an acceptance test of the form 'same manifest gives byte-identical map' with its allowed-variance list. Each closed-world case has one stated treatment.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md",
+          "map.schema.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R6",
+      "requirement": "Decide the safety policy (Q8): whether mapping ever executes project code (build, package install, compiler plugins, macros, code generators), whether it uses the network, and where the tool may write. Give the tradeoff of each option and the rule chosen, and say how the choice is recorded in the manifest and shown on the figure.",
+      "acceptance": {
+        "condition": "The spec states one policy, lists the options rejected with the cost of each (what precision is lost or what risk is taken), and names the acceptance tests that prove the policy holds (for example a process-scoped test for writes and for network connections).",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md",
+          "decision-log.md"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R7",
+      "requirement": "Define how the map reaches the agent (Q9): file or query interface, the closed list of views or slices, size budgets in bytes and tokens, deterministic aggregation of nodes and edges above the leaf level, how the agent asks for a slice, and how the slice is recorded so the verifier knows the exact scope the figure claims to cover. State the behaviour on a repository of one million lines.",
+      "acceptance": {
+        "condition": "The spec gives the commands or calls with inputs and outputs, a numeric size budget per view, the aggregation rule, and the slice record format. A slice is reproducible from the snapshot ID and the request alone.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md",
+          "map.schema.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R8",
+      "requirement": "Define the binding contract (Q10): the binding schema; how bindings are embedded in the built figure so that the verifier reads the rendered artifact and not only a side file; the rule separating bound parts from dressing parts; how code names reach the reader within Anatomy's rule that words stay out of the drawing; how motion is bound to a path in the map; how every readout is bound to a map query; and how omitted and aggregated nodes are declared.",
+      "acceptance": {
+        "condition": "binding.schema.json covers parts, connections, motions, readouts, omissions, aggregations, the slice record and the snapshot ID. The spec states where in the SVG or HTML each binding lives and a rule a machine can apply to tell a bound part from a dressing part. Each point is consistent with the quoted Anatomy rule it touches, or the conflict is recorded in objections.md.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md",
+          "binding.schema.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R9",
+      "requirement": "Define the verifier (Q11) as a numbered list of testable rules. Each rule has an id, its inputs, its pass or fail condition, and a seeded fault that must make it fail. Include at least: a bound part with no map node, an in-scope map node neither drawn nor declared omitted, a drawn connection with no map edge, a count that differs from the map, a readout not derivable from the map, an open end in scope that is not shown, and a figure built from a stale snapshot. State how the verifier relates to Anatomy's own audit, line-end check and captures. List what the verifier cannot judge and who reviews that.",
+      "acceptance": {
+        "condition": "Every verifier rule in the spec has an id, a pass or fail condition a program can evaluate, and a named seeded-fault fixture. The seven listed cases are each covered by a rule. The limits of the verifier are listed.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R10",
+      "requirement": "Define the skill contract (Q12): the ordered workflow the new skill gives the agent, what it adds beyond Anatomy's own workflow, how Anatomy is consumed (pinned dependency or fork) with the licence consequence, which agents must be supported, and the exact files a run emits with their names.",
+      "acceptance": {
+        "condition": "The spec gives the workflow as numbered steps, each naming its input, its output file and the check that ends it. It names the emitted files. It states the Anatomy dependency rule and what happens when Anatomy changes upstream.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R11",
+      "requirement": "Define scale and speed targets, caching, and whether a live mode is in or out (Q13). Define phases, gates, acceptance tests, the fixture corpus and a hold-out rule (Q14), following the pattern of Code Factory v2.2 sections 23-24. The corpus is defined by stack categories and selection criteria; specific public repositories may be named with URLs.",
+      "acceptance": {
+        "condition": "Every gate has a numeric target, a measurement method and a pre-decided fallback, so that no outcome reopens the design. Every hard rule in the spec is covered by at least one named acceptance test with a pass condition. The corpus covers each stack category named in the spec.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R12",
+      "requirement": "Write the handoff to the stack call (Q15) as a spec section titled 'Component slots': one row per capability to be sourced from existing software, with the must-have criteria, the measurable selection criteria (including licence, determinism, offline use, whether it executes project code, maintenance), and the measurement the stack call must report. Include a first slot that asks whether an existing tool can be adopted whole.",
+      "acceptance": {
+        "condition": "The 'Component slots' section exists. Each slot has an id, must-have criteria, selection criteria and a required measurement. No slot names a chosen tool. The slot ids match the component_slots list in results.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R13",
+      "requirement": "Write the carry-over ledger (Q16) as a spec section: each Code Factory v2.2 hard rule R1-R10 and each of its sections 3-26 marked KEEP, ADAPT or DROP with the reason.",
+      "acceptance": {
+        "condition": "The ledger has one row for each Code Factory hard rule R1-R10 and each section 3-26, each with KEEP, ADAPT or DROP and a reason.",
+        "method": "review",
+        "evidence": [
+          "codeanatomy-spec-v1.md"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R14",
+      "requirement": "Prove the spec holds together with one hand-derived worked example on a small public repository: a map excerpt, the slice request and record, the chosen physical object with one sentence on what moves and what that means, the parts list split into bound and dressing parts, the binding instance, and the outcome of every verifier rule. Then seed one fault and show which rule catches it. Label the example as hand-derived, not tool output.",
+      "acceptance": {
+        "condition": "worked-example.md walks all the listed stages for a named public repository with its URL and commit. examples/map-excerpt.json is the map excerpt and examples/binding.json is the binding instance it uses. The seeded fault is shown with the rule id that fails.",
+        "method": "review",
+        "evidence": [
+          "worked-example.md",
+          "examples/map-excerpt.json",
+          "examples/binding.json"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R15",
+      "requirement": "Deliver the two schemas and the two example instances as separate files.",
+      "acceptance": {
+        "condition": "map.schema.json, binding.schema.json, examples/map-excerpt.json and examples/binding.json are present in the outputs ZIP.",
+        "method": "exists",
+        "evidence": [
+          "map.schema.json",
+          "binding.schema.json",
+          "examples/map-excerpt.json",
+          "examples/binding.json"
+        ],
+        "reviewer": "mechanical"
+      }
+    },
+    {
+      "id": "R16",
+      "requirement": "The schemas are valid JSON Schema draft 2020-12, enumerate every kind as a closed enum, and the example instances validate against them.",
+      "acceptance": {
+        "condition": "When checked locally with a JSON Schema validator, both schemas are valid draft 2020-12, examples/map-excerpt.json validates against map.schema.json and examples/binding.json validates against binding.schema.json. Every kind field is an enum whose values equal the kinds listed in the spec.",
+        "method": "review",
+        "evidence": [
+          "map.schema.json",
+          "binding.schema.json",
+          "examples/map-excerpt.json",
+          "examples/binding.json"
+        ],
+        "reviewer": "terminal"
+      }
+    },
+    {
+      "id": "R17",
+      "requirement": "Write objections.md: the strongest case against the project, a line for each tension T1-T10 saying whether the spec resolves it, reduces it or leaves it, and every place where you believe an owner decision D1-D7 or the owner's goal is wrong or unreachable, with evidence. Do not soften it.",
+      "acceptance": {
+        "condition": "objections.md has a section arguing against the project, one line per T1-T10 with RESOLVED, REDUCED or OPEN and a pointer to the spec section, and a list of disagreements with D1-D7 (or the statement that there are none).",
+        "method": "review",
+        "evidence": [
+          "objections.md"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R18",
+      "requirement": "Report the verdicts, owner decisions, question status and slot ids in the results object.",
+      "acceptance": {
+        "condition": "The results object validates against the result schema: seven hypothesis verdicts, sixteen question statuses, at most five owner decisions, at least one component slot.",
+        "method": "json-schema",
+        "evidence": [
+          "results"
+        ],
+        "reviewer": "mechanical"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "codeanatomy-spec-v1.md",
+      "description": "The locked spec, in the form of Code Factory v2.2: plain summary, 'Not promised' list, hard rules, numbered sections for product, vocabulary, tiers and guarantees, identity and determinism, safety, map delivery, binding, verifier, skill contract, scale, phases and gates, acceptance tests, component slots, carry-over ledger, known limits."
+    },
+    {
+      "filename": "decision-log.md",
+      "description": "One entry per Q1-Q16, per H1-H7 and per further decision: options, choice, reason, evidence with VERIFIED or RECALLED label, and what would overturn it."
+    },
+    {
+      "filename": "map.schema.json",
+      "description": "JSON Schema draft 2020-12 for the canonical map, including the manifest, snapshot ID, nodes, edges, open ends, anchors and the slice record."
+    },
+    {
+      "filename": "binding.schema.json",
+      "description": "JSON Schema draft 2020-12 for the figure binding: parts, connections, motions, readouts, omissions, aggregations, slice record and snapshot ID."
+    },
+    {
+      "filename": "worked-example.md",
+      "description": "Hand-derived walk from a small public repository to a verified figure plan, plus one seeded fault and the rule that catches it."
+    },
+    {
+      "filename": "examples/map-excerpt.json",
+      "description": "The map excerpt used by the worked example; validates against map.schema.json."
+    },
+    {
+      "filename": "examples/binding.json",
+      "description": "The binding instance used by the worked example; validates against binding.schema.json."
+    },
+    {
+      "filename": "objections.md",
+      "description": "The case against the project, the status of each tension T1-T10, and any disagreement with owner decisions D1-D7."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/home/sina/Work/CodeAnatomy/BRIEF.md",
+      "filename": "BRIEF.md",
+      "role": "Read first. The exact question: the owner's words verbatim, observed facts, binding owner decisions D1-D7, non-binding proposals H1-H7, tensions T1-T10 and open questions Q1-Q16."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/sources/code-factory/code-factory-blueprint-spec-v2.2.md",
+      "filename": "code-factory-blueprint-spec-v2.2.md",
+      "role": "The expired predecessor, Python only, no LLM. The model for the form of the new spec and the source of the rules, anchor and manifest design, gates and acceptance tests to keep, adapt or drop. Not binding on the new spec."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/sources/anatomy-689dcf9/anatomy_SKILL.md",
+      "filename": "anatomy_SKILL.md",
+      "role": "Anatomy's SKILL.md at commit 689dcf9. Authoritative for how the agent draws: workflow, sizes, craft rules, kit files and checks. The new skill builds on it and must not contradict it silently."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/sources/anatomy-689dcf9/anatomy_verify.md",
+      "filename": "anatomy_verify.md",
+      "role": "Anatomy's references/verify.md at commit 689dcf9. The existing verification of the drawing itself; the new verifier adds truth-to-code checks beside it."
+    },
+    {
+      "path": "/home/sina/Work/CodeAnatomy/sources/anatomy-689dcf9/anatomy_walkthrough.md",
+      "filename": "anatomy_walkthrough.md",
+      "role": "Anatomy's references/walkthrough.md at commit 689dcf9. How one figure was designed from concept to code; use it to judge where a map and bindings enter that process."
+    }
+  ],
+  "stop_condition": "Deliver all eight files. If a question cannot be closed on evidence, close it with a stated default and record the doubt in objections.md. Report PARTIAL only if a deliverable is missing or a requirement is UNMET, and name which in limitations.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary",
+      "hypothesis_verdicts",
+      "question_status",
+      "owner_decisions",
+      "component_slots"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      },
+      "hypothesis_verdicts": {
+        "type": "array",
+        "minItems": 7,
+        "maxItems": 7,
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "verdict"
+          ],
+          "properties": {
+            "id": {
+              "enum": [
+                "H1",
+                "H2",
+                "H3",
+                "H4",
+                "H5",
+                "H6",
+                "H7"
+              ]
+            },
+            "verdict": {
+              "enum": [
+                "ADOPTED",
+                "MODIFIED",
+                "REJECTED"
+              ]
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
+        "allOf": [
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "H1"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "H2"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "H3"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "H4"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "H5"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "H6"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "H7"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "question_status": {
+        "type": "array",
+        "minItems": 16,
+        "maxItems": 16,
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "status"
+          ],
+          "properties": {
+            "id": {
+              "enum": [
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4",
+                "Q5",
+                "Q6",
+                "Q7",
+                "Q8",
+                "Q9",
+                "Q10",
+                "Q11",
+                "Q12",
+                "Q13",
+                "Q14",
+                "Q15",
+                "Q16"
+              ]
+            },
+            "status": {
+              "enum": [
+                "CLOSED",
+                "CLOSED_WITH_DEFAULT"
+              ]
+            }
+          }
+        },
+        "allOf": [
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q1"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q2"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q3"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q4"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q5"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q6"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q7"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q8"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q9"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q10"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q11"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q12"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q13"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q14"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q15"
+                }
+              }
+            }
+          },
+          {
+            "contains": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "Q16"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "owner_decisions": {
+        "type": "array",
+        "maxItems": 5,
+        "items": {
+          "type": "object",
+          "required": [
+            "question",
+            "default_applied"
+          ],
+          "properties": {
+            "question": {
+              "type": "string"
+            },
+            "default_applied": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "component_slots": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "project": "frontline44",
+  "title": "M7 building implementation \u2014 isolated packet",
+  "purpose": "Implement all seven buildables and the battle Build menu without conflicting with other parallel changes.",
+  "task": "Supply compile-oriented ZScript actors, handler method fragments, FL_T constants, T12 implementation fragments and precise operator hook instructions for complete \u00a78.7 M7.",
+  "scope": {
+    "in": [
+      "Build all 7 choices in exact spec order: sandbag, wire, mine, AT mine, MG nest (donor SM_MGTurret), ammo crate, aid station.",
+      "Implement crosshair LineTrace TRF_THRUACTORS max FL_T.BUILD_REACH, permitted \u2264FL_T.BUILD_ZONE from US HQ spot 121 or US-held supply points; proper spawn at hit point, player angle; BuildCost skill/class reductions, atomic supply spend and spec refusal messages.",
+      "Build six FL_ actors in exclusively owned World.zs while preserving existing HQ/flag actors; mine/AT-mine trigger/damage and tick timings, wire slow/damage, HP/blocking, ammo/aid station cycles.",
+      "Author M7_FillBuildMenu and M7_ChooseBuild named methods; handler hook requests for menuId 2 in existing MenuChoose and RebuildMenu only, preserving B toggle, V selection and an open menu after placement.",
+      "Author T12 build args 0\u20136: placement existence, exact BuildCost supply decrement for each, hostile GER mine death \u226470 tics, MVP_ArmyTruck AT mine death \u226470 tics; one line FL_TEST PASS build / FAIL build with rationale within 1500 tics."
+    ],
+    "out": [
+      "M8 progression/loot/camp UI, M9 audit, M10 packaging, tuning director, donor replacements, change to any existing test PASS criteria."
+    ]
+  },
+  "constraints": [
+    "Use only the specifically supplied source files. source_001_FRONTLINE44_SPEC.md controls, including the approved \u00a78.6 debut reservation. Distinguish verified source facts from untested engine hypotheses.",
+    "Parallel source authoring only; the operator alone integrates in M7\u2192M8\u2192M9\u2192M10 order, repairs compiler/API faults, runs the engine, accepts milestones and ships. No engine is assumed available to this call; never claim that load or any test PASS was executed.",
+    "ZScript only for gameplay; all custom files under frontline/; no donor code modifications; FL_ custom class prefix and fl_ CVar prefix; every newly introduced production number other than 0/1 must be declared in FL_T. Do not weaken tests or change existing PASS semantics.",
+    "Preserve M0\u2013M6 baselines and T1\u2013T11/T13 arg0/T16; no whole-file Handler.zs, Tests.zs, Tuning.zs, zscript.zs, mapinfo.txt or keyconf.txt rewrites. A parallel implementation must provide method-only fragments and a machine-readable hooks.json for operator application.",
+    "Frozen-source status conflict: source_002 claims M6/T10 PASS while source_012 records T10 FAIL and source_016 was an unrun proposal. Treat current M6 verification as an operator preflight gate, not a proved PASS; never change director economics within this job.",
+    "Result is inert code; report unverified ZScript signature assumptions as PARTIAL/BLOCKED and provide diagnostics. Do not silently add game features, implement test-only cheats, relax thresholds or edit donor code.",
+    "Exclusive editable path: frontline/zscript/fl/World.zs ONLY; supply complete preserved-file replacement plus unified diff. Other gameplay output = fragments, never shared full files.",
+    "Use existing handler members menuId/cursor/menuItems/pointOwner/SpotPos/BattlePlayer/Say/AddInv and FL_Stats.BuildCost. Source Handler is not an editable output; additions are prefixed M7_.",
+    "Design hook records: Handler.MenuChoose new menuId==2 branch -> M7_ChooseBuild(cursor), Handler.RebuildMenu menuId==2 branch -> M7_FillBuildMenu(), Tests.WorldLoaded case 12 -> M7_SetupT12(), Tests.WorldTick case 12 -> M7_TickT12(). Existing NetworkProcess already processes B/V; do not add another override.",
+    "T12 tests must call the real production build action, not directly grant or destroy test actors to manufacture PASS; controlled setup/invulnerability may be used to isolate the checks."
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "requirement": "Build \u00a78.7 correctly and without gameplay-scope creep",
+      "acceptance": {
+        "condition": "7 options, BuildCost, zones/ranges/errors, all six custom actors, donor turret behavior and atomic supply changes match authoritative spec.",
+        "method": "review",
+        "evidence": [
+          "call-1-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R2",
+      "requirement": "Provide safe integration and FL_T definitions",
+      "acceptance": {
+        "condition": "No shared-file overwrites; unique Handler/TestHandler hooks and all necessary new constants in FL_T member fragment; World.zs existing actors preserved.",
+        "method": "review",
+        "evidence": [
+          "call-1-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    },
+    {
+      "id": "R3",
+      "requirement": "Implement exact M7 acceptance test",
+      "acceptance": {
+        "condition": "T12 args 0..6 exercise actual placement, costs and mine timings without relaxing any threshold; human checklist includes load 57, T12 0..6, then T1\u2013T11/T13a/T16 regression serially.",
+        "method": "review",
+        "evidence": [
+          "call-1-packet.zip"
+        ],
+        "reviewer": "operator"
+      }
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "call-1-packet.zip",
+      "description": "ZIP containing README-integration.md (exact hooks/assumptions), owned/ (only exclusively owned complete files), fragments/ (Handler method definitions, Tuning FL_T member declarations, TestHandler methods as relevant), hooks.json (ordered records with id/file/unique anchor/operation/payload/before_or_after/depends_on/expected_match_count=1), verification.md (unexecuted compilation and exact-test checklist), limitations.md. Include diffs against each owned baseline. No entire shared-file replacement or unapproved changes."
+    },
+    {
+      "filename": "call-1-operator-notes.md",
+      "description": "Minimal operator merge order, compile checklist, T12 args 0\u20136 and full previous-regression matrix, limitations."
+    }
+  ],
+  "sources": [
+    {
+      "path": "/home/sina/Downloads/FRONTLINE44_SPEC.md",
+      "role": "Authoritative game/spec \u00a70, \u00a75, \u00a78.7, \u00a711 T12, \u00a713 and \u00a712."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/SPLIT_DESIGN_BRIEF.md",
+      "role": "Five-call model, done milestones and integration assumptions."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Handler.zs",
+      "role": "Read-only shared handler baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tests.zs",
+      "role": "Read-only shared harness baseline; publish insertion fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Tuning.zs",
+      "role": "Read-only FL_T baseline; publish constants fragments only."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/World.zs",
+      "role": "Current flags/HQ actor declarations; exclusive Call 1 edit path."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Weapons.zs",
+      "role": "Weapon/drop/projectile implementations and gun index contracts."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Player.zs",
+      "role": "Player/camp/class and damage hooks; do not rewrite."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Stats.zs",
+      "role": "Existing FL_Stats formulas; do not change PASS T13a."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/frontline/zscript/fl/Soldiers.zs",
+      "role": "Tier/rank, squad flags and hostile types."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/BUILD_LOG.md",
+      "role": "Historical outcomes; T10 baseline conflict must be acknowledged."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/DECISIONS.md",
+      "role": "Binding previous integration decisions/limitations."
+    },
+    {
+      "path": "/home/sina/Work/GameFactory/Doom/frontline44/TEST_SPEED_EVIDENCE.md",
+      "role": "Actual test/run constraints, solo engine and kill-on-verdict."
+    },
+    {
+      "path": "/home/sina/Work/ExternalCall/examples/repository_audit.job.json",
+      "role": "Template defining job JSON style and required keys."
+    }
+  ],
+  "stop_condition": "Deliver call-1-packet.zip and notes; mark unverified engine/API details PARTIAL/BLOCKED, never claim PASS. Stop before editing other milestones.",
+  "unresolved_decisions": [],
+  "result_schema": {
+    "type": "object",
+    "required": [
+      "summary"
+    ],
+    "properties": {
+      "summary": {
+        "type": "string"
+      }
+    }
+  }
+}
