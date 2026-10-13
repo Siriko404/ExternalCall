@@ -37,6 +37,14 @@ focused operating reference only for lifecycle commands or recovery.
    outputs ZIP. The call finishes itself when that ZIP lands in the downloads
    folder. Never send or download for them.
 
+When a prepared call is updated (its job was corrected, so `prepare` made a new
+exchange), always delete the bad call in the same turn with
+`./externalcall delete --exchange <old id>`, confirm with `list` that only the
+new one is left, and report the new exchange ID. Never leave a bad call beside
+its replacement: the operator could send the wrong one. This is the operator's
+standing request for that deletion. A call that was already sent holds evidence:
+keep it unless the operator asks for its deletion.
+
 After preparation, status, results, waiting, resending, correction and recovery
 need no other command: follow the [operating reference](../../references/OPERATING_CORE.md).
 Read a returned result against JOB.json and report transport/schema validity,
